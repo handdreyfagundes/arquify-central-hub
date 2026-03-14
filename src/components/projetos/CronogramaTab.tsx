@@ -168,6 +168,7 @@ export default function CronogramaTab({ projetoId }: Props) {
     setFormDataInicio(undefined);
     setFormStatus("pendente");
     setFormProgresso(0);
+    setFormDuracaoDias("0");
     setEtapaDialogOpen(true);
   };
 
