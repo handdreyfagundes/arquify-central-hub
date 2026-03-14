@@ -109,6 +109,14 @@ export default function CronogramaEtapaCard({
   const [revObs, setRevObs] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Edit revision state
+  const [editRevDialogOpen, setEditRevDialogOpen] = useState(false);
+  const [editingRev, setEditingRev] = useState<Revisao | null>(null);
+  const [editRevDate, setEditRevDate] = useState<Date | undefined>(new Date());
+  const [editRevPrazo, setEditRevPrazo] = useState("5");
+  const [editRevObs, setEditRevObs] = useState("");
+  const [deleteRevTarget, setDeleteRevTarget] = useState<Revisao | null>(null);
+
   const handleCircleClick = () => {
     if (subetapas.length === 0) {
       setConfirmOpen(true);
