@@ -401,13 +401,20 @@ export default function CronogramaTab({ projetoId }: Props) {
 
         const subs = await listSubetapasByEtapa(etapa.id);
         if (!subs.length) {
-          // Stage without substages: end = start + duracao_dias
-          if (etapa.duracao_dias) {
+          // Stage without substages: check for etapa-level revisions
+          const etapaRevs = await listRevisoesByEtapa(etapa.id);
+          const latestEtapaRev = etapaRevs.length > 0 ? etapaRevs[etapaRevs.length - 1] : null;
+
+          if (latestEtapaRev?.data_nova_entrega) {
+            // Revision pushed the end date
+            await updateEtapa(etapa.id, { data_fim: latestEtapaRev.data_nova_entrega });
+            previousEndDate = latestEtapaRev.data_nova_entrega;
+          } else if (etapa.duracao_dias) {
             const endDate = toDateString(addDays(parseLocalDate(startDate), etapa.duracao_dias, countType));
             await updateEtapa(etapa.id, { data_fim: endDate });
             previousEndDate = endDate;
           } else {
-            previousEndDate = startDate;
+            previousEndDate = etapa.data_fim || startDate;
           }
           continue;
         }
