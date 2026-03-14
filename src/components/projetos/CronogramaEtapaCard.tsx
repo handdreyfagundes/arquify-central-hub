@@ -65,6 +65,7 @@ export default function CronogramaEtapaCard({
   total,
   subetapas,
   revisoes,
+  etapaRevisoes = [],
   onEditEtapa,
   onDeleteEtapa,
   onMoveEtapa,
@@ -72,12 +73,18 @@ export default function CronogramaEtapaCard({
   onEditSubetapa,
   onDeleteSubetapa,
   onAddRevisao,
+  onAddEtapaRevisao,
   onToggleEtapaStatus,
   onToggleSubStatus,
 }: Props) {
   const cfg = STATUS_CONFIG[etapa.status];
   const progresso = etapa.progresso ?? 0;
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [revDialogOpen, setRevDialogOpen] = useState(false);
+  const [revDate, setRevDate] = useState<Date | undefined>(new Date());
+  const [revPrazo, setRevPrazo] = useState("5");
+  const [revObs, setRevObs] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const handleCircleClick = () => {
     // Only allow direct toggle if stage has no substages
