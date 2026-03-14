@@ -608,9 +608,12 @@ export default function CronogramaTab({ projetoId }: Props) {
               onEditSubetapa={openEditSubetapa}
               onDeleteSubetapa={setDeleteSubTarget}
               onAddRevisao={handleAddRevisao}
+              onEditRevisao={handleEditRevisao}
+              onDeleteRevisao={handleDeleteRevisao}
               onAddEtapaRevisao={handleAddEtapaRevisao}
               onToggleEtapaStatus={handleToggleEtapaStatus}
               onToggleSubStatus={handleToggleSubStatus}
+              countType={countType}
             />
           ))}
         </div>
