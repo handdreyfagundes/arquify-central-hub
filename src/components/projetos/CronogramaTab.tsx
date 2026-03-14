@@ -54,6 +54,7 @@ import { recalcSubetapas, parseLocalDate, addDays, toDateString } from "@/lib/cr
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import CronogramaEtapaCard from "./CronogramaEtapaCard";
+import StageFlowOverview from "./StageFlowOverview";
 
 type StageStatus = Database["public"]["Enums"]["stage_status"];
 type Etapa = Database["public"]["Tables"]["etapas"]["Row"];
