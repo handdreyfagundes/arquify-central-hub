@@ -971,6 +971,10 @@ export type Database = {
       }
     }
     Functions: {
+      bootstrap_workspace: {
+        Args: { _cidade?: string; _estado?: string; _workspace_name: string }
+        Returns: string
+      }
       get_project_workspace_id: {
         Args: { _projeto_id: string }
         Returns: string
