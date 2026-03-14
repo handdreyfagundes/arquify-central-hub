@@ -63,7 +63,6 @@ interface Props {
   total: number;
   subetapas: Subetapa[];
   revisoes: Record<string, Revisao[]>;
-  /** Revisions keyed by etapa id (for stages without substages) */
   etapaRevisoes?: Revisao[];
   onEditEtapa: (etapa: Etapa) => void;
   onDeleteEtapa: (etapa: Etapa) => void;
@@ -72,9 +71,12 @@ interface Props {
   onEditSubetapa: (sub: Subetapa) => void;
   onDeleteSubetapa: (sub: Subetapa) => void;
   onAddRevisao: (subId: string, rev: { data_solicitacao: string; prazo_dias: number; observacoes: string }) => void;
+  onEditRevisao: (revId: string, updates: { data_solicitacao: string; prazo_dias: number; data_nova_entrega: string; observacoes: string | null }) => void;
+  onDeleteRevisao: (revId: string) => void;
   onAddEtapaRevisao?: (etapaId: string, rev: { data_solicitacao: string; prazo_dias: number; observacoes: string }) => void;
   onToggleEtapaStatus: (etapa: Etapa) => void;
   onToggleSubStatus: (sub: Subetapa) => void;
+  countType: "uteis" | "corridos";
 }
 
 export default function CronogramaEtapaCard({
@@ -91,9 +93,12 @@ export default function CronogramaEtapaCard({
   onEditSubetapa,
   onDeleteSubetapa,
   onAddRevisao,
+  onEditRevisao,
+  onDeleteRevisao,
   onAddEtapaRevisao,
   onToggleEtapaStatus,
   onToggleSubStatus,
+  countType,
 }: Props) {
   const cfg = STATUS_CONFIG[etapa.status];
   const progresso = etapa.progresso ?? 0;
@@ -103,6 +108,14 @@ export default function CronogramaEtapaCard({
   const [revPrazo, setRevPrazo] = useState("5");
   const [revObs, setRevObs] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Edit revision state
+  const [editRevDialogOpen, setEditRevDialogOpen] = useState(false);
+  const [editingRev, setEditingRev] = useState<Revisao | null>(null);
+  const [editRevDate, setEditRevDate] = useState<Date | undefined>(new Date());
+  const [editRevPrazo, setEditRevPrazo] = useState("5");
+  const [editRevObs, setEditRevObs] = useState("");
+  const [deleteRevTarget, setDeleteRevTarget] = useState<Revisao | null>(null);
 
   const handleCircleClick = () => {
     if (subetapas.length === 0) {
@@ -128,6 +141,32 @@ export default function CronogramaEtapaCard({
     setRevObs("");
     setRevPrazo("5");
   };
+
+  const handleSaveEditRevisao = async () => {
+    if (!editingRev || !editRevDate) return;
+    setSaving(true);
+    const dataSolicitacao = format(editRevDate, "yyyy-MM-dd");
+    const prazoDias = parseInt(editRevPrazo) || 5;
+    // Recalculate new delivery from the updated request date + prazo
+    const { addDays, parseLocalDate, toDateString } = await import("@/lib/cronograma-utils");
+    const newDelivery = toDateString(addDays(parseLocalDate(dataSolicitacao), prazoDias, countType));
+    await onEditRevisao(editingRev.id, {
+      data_solicitacao: dataSolicitacao,
+      prazo_dias: prazoDias,
+      data_nova_entrega: newDelivery,
+      observacoes: editRevObs || null,
+    });
+    setSaving(false);
+    setEditRevDialogOpen(false);
+    setEditingRev(null);
+  };
+
+  const handleDeleteRev = async () => {
+    if (!deleteRevTarget) return;
+    await onDeleteRevisao(deleteRevTarget.id);
+    setDeleteRevTarget(null);
+  };
+
   const isCompleted = etapa.status === "concluida";
 
   return (
@@ -247,6 +286,30 @@ export default function CronogramaEtapaCard({
                   {rev.observacoes && (
                     <span className="truncate italic">"{rev.observacoes}"</span>
                   )}
+                  <div className="flex gap-0.5 ml-auto shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-5"
+                      onClick={() => {
+                        setEditingRev(rev);
+                        setEditRevDate(new Date(rev.data_solicitacao + "T00:00:00"));
+                        setEditRevPrazo(String(rev.prazo_dias));
+                        setEditRevObs(rev.observacoes || "");
+                        setEditRevDialogOpen(true);
+                      }}
+                    >
+                      <Pencil className="size-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-5 text-destructive"
+                      onClick={() => setDeleteRevTarget(rev)}
+                    >
+                      <Trash2 className="size-3" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -263,7 +326,10 @@ export default function CronogramaEtapaCard({
                   onEdit={onEditSubetapa}
                   onDelete={onDeleteSubetapa}
                   onAddRevisao={onAddRevisao}
+                  onEditRevisao={onEditRevisao}
+                  onDeleteRevisao={onDeleteRevisao}
                   onToggleStatus={onToggleSubStatus}
+                  countType={countType}
                 />
               ))}
             </div>
@@ -358,6 +424,62 @@ export default function CronogramaEtapaCard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit revision dialog */}
+      <Dialog open={editRevDialogOpen} onOpenChange={setEditRevDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar revisão — {etapa.nome}</DialogTitle>
+            <DialogDescription>Atualize os dados da revisão. As datas serão recalculadas.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Data da solicitação</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !editRevDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 size-4" />
+                    {editRevDate ? format(editRevDate, "dd/MM/yyyy") : "Selecionar data"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={editRevDate} onSelect={setEditRevDate} locale={ptBR} className={cn("p-3 pointer-events-auto")} />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-2">
+              <Label>Prazo da revisão (dias)</Label>
+              <Input type="number" min="1" value={editRevPrazo} onChange={(e) => setEditRevPrazo(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Observações (opcional)</Label>
+              <Textarea value={editRevObs} onChange={(e) => setEditRevObs(e.target.value)} placeholder="Detalhes da revisão…" rows={2} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditRevDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaveEditRevisao} disabled={saving || !editRevDate}>
+              {saving ? "Salvando…" : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete revision confirmation */}
+      <AlertDialog open={!!deleteRevTarget} onOpenChange={(open) => !open && setDeleteRevTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir revisão?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A revisão será removida e as datas serão recalculadas automaticamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteRev}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

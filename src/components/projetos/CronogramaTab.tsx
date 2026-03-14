@@ -46,6 +46,8 @@ import {
   listRevisoesBySubetapa,
   listRevisoesByEtapa,
   createRevisao,
+  updateRevisao,
+  deleteRevisao,
 } from "@/services/subetapas";
 import type { Subetapa, Revisao } from "@/services/subetapas";
 import { recalcSubetapas, parseLocalDate, addDays, toDateString } from "@/lib/cronograma-utils";
@@ -84,6 +86,7 @@ export default function CronogramaTab({ projetoId }: Props) {
   const [formDataInicio, setFormDataInicio] = useState<Date | undefined>();
   const [formStatus, setFormStatus] = useState<StageStatus>("pendente");
   const [formProgresso, setFormProgresso] = useState(0);
+  const [formDuracaoDias, setFormDuracaoDias] = useState("0");
   const [saving, setSaving] = useState(false);
 
   // Subetapa dialog
@@ -165,6 +168,7 @@ export default function CronogramaTab({ projetoId }: Props) {
     setFormDataInicio(undefined);
     setFormStatus("pendente");
     setFormProgresso(0);
+    setFormDuracaoDias("0");
     setEtapaDialogOpen(true);
   };
 
@@ -174,6 +178,7 @@ export default function CronogramaTab({ projetoId }: Props) {
     setFormDataInicio(etapa.data_inicio ? new Date(etapa.data_inicio + "T00:00:00") : undefined);
     setFormStatus(etapa.status);
     setFormProgresso(etapa.progresso ?? 0);
+    setFormDuracaoDias(String(etapa.duracao_dias ?? 0));
     setEtapaDialogOpen(true);
   };
 
@@ -186,6 +191,7 @@ export default function CronogramaTab({ projetoId }: Props) {
         data_inicio: formDataInicio ? format(formDataInicio, "yyyy-MM-dd") : null,
         status: formStatus,
         progresso: formProgresso,
+        duracao_dias: parseInt(formDuracaoDias) || 0,
       };
       if (editingEtapa) {
         await updateEtapa(editingEtapa.id, payload);
@@ -377,6 +383,31 @@ export default function CronogramaTab({ projetoId }: Props) {
     }
   };
 
+  // === Revision edit handler ===
+  const handleEditRevisao = async (
+    revId: string,
+    updates: { data_solicitacao: string; prazo_dias: number; data_nova_entrega: string; observacoes: string | null }
+  ) => {
+    try {
+      await updateRevisao(revId, updates);
+      await runReactiveRecalculation();
+      toast({ title: "Revisão atualizada. Datas recalculadas." });
+    } catch {
+      toast({ title: "Erro ao editar revisão", variant: "destructive" });
+    }
+  };
+
+  // === Revision delete handler ===
+  const handleDeleteRevisao = async (revId: string) => {
+    try {
+      await deleteRevisao(revId);
+      await runReactiveRecalculation();
+      toast({ title: "Revisão excluída. Datas recalculadas." });
+    } catch {
+      toast({ title: "Erro ao excluir revisão", variant: "destructive" });
+    }
+  };
+
   // === Recalculation with strict forward chaining ===
   const recalculateDates = useCallback(async () => {
     try {
@@ -409,22 +440,28 @@ export default function CronogramaTab({ projetoId }: Props) {
 
         const subs = await listSubetapasByEtapa(etapa.id);
 
-        // Stage without substages anchors next stage from its own end date.
+        // Stage without substages: use duracao_dias as "prazo até a próxima"
         if (!subs.length) {
           const etapaRevs = await listRevisoesByEtapa(etapa.id);
           const latestEtapaRev = etapaRevs.length > 0 ? etapaRevs[etapaRevs.length - 1] : null;
 
-          let endDate = etapa.data_fim || startDate;
+          // Calculate end date from start + duracao_dias
+          const duracaoDias = etapa.duracao_dias ?? 0;
+          let endDate = duracaoDias > 0
+            ? toDateString(addDays(parseLocalDate(startDate), duracaoDias, effectiveCountType))
+            : startDate;
+
+          // If there's a revision, use its date if later
           if (latestEtapaRev?.data_nova_entrega) {
-            endDate = latestEtapaRev.data_nova_entrega;
-          } else if (etapa.duracao_dias) {
-            endDate = toDateString(addDays(parseLocalDate(startDate), etapa.duracao_dias, effectiveCountType));
+            const revDate = latestEtapaRev.data_nova_entrega;
+            if (revDate > endDate) endDate = revDate;
           }
 
           if (etapa.data_fim !== endDate) {
             await updateEtapa(etapa.id, { data_fim: endDate });
           }
 
+          // Next stage starts from end date (the prazo is already baked into endDate since endDate = start + duracao_dias)
           nextStageStartDate = endDate;
           continue;
         }
@@ -571,9 +608,12 @@ export default function CronogramaTab({ projetoId }: Props) {
               onEditSubetapa={openEditSubetapa}
               onDeleteSubetapa={setDeleteSubTarget}
               onAddRevisao={handleAddRevisao}
+              onEditRevisao={handleEditRevisao}
+              onDeleteRevisao={handleDeleteRevisao}
               onAddEtapaRevisao={handleAddEtapaRevisao}
               onToggleEtapaStatus={handleToggleEtapaStatus}
               onToggleSubStatus={handleToggleSubStatus}
+              countType={countType}
             />
           ))}
         </div>
@@ -620,6 +660,17 @@ export default function CronogramaTab({ projetoId }: Props) {
                   <SelectItem value="concluida">Concluída</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            {/* Show prazo field - useful for stages without substages */}
+            <div className="space-y-2">
+              <Label>Prazo até a próxima (dias)</Label>
+              <Input type="number" min="0" value={formDuracaoDias} onChange={(e) => setFormDuracaoDias(e.target.value)} />
+              <p className="text-xs text-muted-foreground">
+                Número de {countType === "uteis" ? "dias úteis" : "dias corridos"} até a próxima etapa principal.
+                {editingEtapa && (subetapasMap[editingEtapa.id]?.length ?? 0) > 0 && (
+                  <span className="block mt-1 text-yellow-600">Esta etapa possui subetapas — o encadeamento será feito pela última subetapa.</span>
+                )}
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Progresso: {formProgresso}%</Label>

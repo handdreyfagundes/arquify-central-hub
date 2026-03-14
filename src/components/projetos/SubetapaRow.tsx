@@ -55,10 +55,13 @@ interface Props {
     prazo_dias: number;
     observacoes: string;
   }) => void;
+  onEditRevisao: (revId: string, updates: { data_solicitacao: string; prazo_dias: number; data_nova_entrega: string; observacoes: string | null }) => void;
+  onDeleteRevisao: (revId: string) => void;
   onToggleStatus: (sub: Subetapa) => void;
+  countType: "uteis" | "corridos";
 }
 
-export default function SubetapaRow({ sub, revisoes, onEdit, onDelete, onAddRevisao, onToggleStatus }: Props) {
+export default function SubetapaRow({ sub, revisoes, onEdit, onDelete, onAddRevisao, onEditRevisao, onDeleteRevisao, onToggleStatus, countType }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [revDialogOpen, setRevDialogOpen] = useState(false);
   const [revDate, setRevDate] = useState<Date | undefined>(new Date());
@@ -66,6 +69,14 @@ export default function SubetapaRow({ sub, revisoes, onEdit, onDelete, onAddRevi
   const [revObs, setRevObs] = useState("");
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // Edit revision state
+  const [editRevDialogOpen, setEditRevDialogOpen] = useState(false);
+  const [editingRev, setEditingRev] = useState<Revisao | null>(null);
+  const [editRevDate, setEditRevDate] = useState<Date | undefined>(new Date());
+  const [editRevPrazo, setEditRevPrazo] = useState("5");
+  const [editRevObs, setEditRevObs] = useState("");
+  const [deleteRevTarget, setDeleteRevTarget] = useState<Revisao | null>(null);
 
   const isCompleted = sub.status === "concluida";
   const isInProgress = sub.status === "em_andamento";
@@ -173,6 +184,30 @@ export default function SubetapaRow({ sub, revisoes, onEdit, onDelete, onAddRevi
               {rev.observacoes && (
                 <span className="truncate italic">"{rev.observacoes}"</span>
               )}
+              <div className="flex gap-0.5 ml-auto shrink-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-5"
+                  onClick={() => {
+                    setEditingRev(rev);
+                    setEditRevDate(new Date(rev.data_solicitacao + "T00:00:00"));
+                    setEditRevPrazo(String(rev.prazo_dias));
+                    setEditRevObs(rev.observacoes || "");
+                    setEditRevDialogOpen(true);
+                  }}
+                >
+                  <Pencil className="size-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-5 text-destructive"
+                  onClick={() => setDeleteRevTarget(rev)}
+                >
+                  <Trash2 className="size-3" />
+                </Button>
+              </div>
             </div>
           ))}
         </div>
@@ -255,6 +290,86 @@ export default function SubetapaRow({ sub, revisoes, onEdit, onDelete, onAddRevi
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={confirmToggle}>Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit revision dialog */}
+      <Dialog open={editRevDialogOpen} onOpenChange={setEditRevDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar revisão — {sub.nome}</DialogTitle>
+            <DialogDescription>Atualize os dados da revisão. As datas serão recalculadas.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Data da solicitação</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !editRevDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 size-4" />
+                    {editRevDate ? format(editRevDate, "dd/MM/yyyy") : "Selecionar data"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={editRevDate} onSelect={setEditRevDate} locale={ptBR} className={cn("p-3 pointer-events-auto")} />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-2">
+              <Label>Prazo da revisão (dias)</Label>
+              <Input type="number" min="1" value={editRevPrazo} onChange={(e) => setEditRevPrazo(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Observações (opcional)</Label>
+              <Textarea value={editRevObs} onChange={(e) => setEditRevObs(e.target.value)} placeholder="Detalhes da revisão…" rows={2} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditRevDialogOpen(false)}>Cancelar</Button>
+            <Button
+              onClick={async () => {
+                if (!editingRev || !editRevDate) return;
+                setSaving(true);
+                const { addDays, parseLocalDate, toDateString } = await import("@/lib/cronograma-utils");
+                const dataSol = format(editRevDate, "yyyy-MM-dd");
+                const prazo = parseInt(editRevPrazo) || 5;
+                const newDelivery = toDateString(addDays(parseLocalDate(dataSol), prazo, countType));
+                await onEditRevisao(editingRev.id, {
+                  data_solicitacao: dataSol,
+                  prazo_dias: prazo,
+                  data_nova_entrega: newDelivery,
+                  observacoes: editRevObs || null,
+                });
+                setSaving(false);
+                setEditRevDialogOpen(false);
+                setEditingRev(null);
+              }}
+              disabled={saving || !editRevDate}
+            >
+              {saving ? "Salvando…" : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete revision confirmation */}
+      <AlertDialog open={!!deleteRevTarget} onOpenChange={(open) => !open && setDeleteRevTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir revisão?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A revisão será removida e as datas serão recalculadas automaticamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={async () => {
+              if (deleteRevTarget) {
+                await onDeleteRevisao(deleteRevTarget.id);
+                setDeleteRevTarget(null);
+              }
+            }}>Excluir</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
