@@ -489,7 +489,7 @@ export default function CronogramaTab({ projetoId }: Props) {
         .eq("id", projetoId);
       setSettingsOpen(false);
       toast({ title: "Configuração salva" });
-      await recalculateDates();
+      await runReactiveRecalculation();
     } catch {
       toast({ title: "Erro ao salvar configuração", variant: "destructive" });
     }
