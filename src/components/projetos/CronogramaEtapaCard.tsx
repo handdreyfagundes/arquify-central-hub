@@ -424,6 +424,62 @@ export default function CronogramaEtapaCard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit revision dialog */}
+      <Dialog open={editRevDialogOpen} onOpenChange={setEditRevDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar revisão — {etapa.nome}</DialogTitle>
+            <DialogDescription>Atualize os dados da revisão. As datas serão recalculadas.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Data da solicitação</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !editRevDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 size-4" />
+                    {editRevDate ? format(editRevDate, "dd/MM/yyyy") : "Selecionar data"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={editRevDate} onSelect={setEditRevDate} locale={ptBR} className={cn("p-3 pointer-events-auto")} />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-2">
+              <Label>Prazo da revisão (dias)</Label>
+              <Input type="number" min="1" value={editRevPrazo} onChange={(e) => setEditRevPrazo(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Observações (opcional)</Label>
+              <Textarea value={editRevObs} onChange={(e) => setEditRevObs(e.target.value)} placeholder="Detalhes da revisão…" rows={2} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditRevDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaveEditRevisao} disabled={saving || !editRevDate}>
+              {saving ? "Salvando…" : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete revision confirmation */}
+      <AlertDialog open={!!deleteRevTarget} onOpenChange={(open) => !open && setDeleteRevTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir revisão?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A revisão será removida e as datas serão recalculadas automaticamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteRev}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
