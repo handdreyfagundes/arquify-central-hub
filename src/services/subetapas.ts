@@ -107,14 +107,11 @@ export async function createRevisao(rev: {
   prazo_dias: number;
   data_nova_entrega: string;
   observacoes?: string | null;
-}): Promise<Revisao> {
-  const { data, error } = await supabase
+}): Promise<void> {
+  const { error } = await supabase
     .from("revisoes")
-    .insert(rev)
-    .select()
-    .single();
+    .insert(rev);
   if (error) throw error;
-  return data as Revisao;
 }
 
 export async function updateRevisao(
