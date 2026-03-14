@@ -335,6 +335,7 @@ export default function CronogramaTab({ projetoId }: Props) {
 
       await createRevisao({
         subetapa_id: subId,
+        etapa_id: null,
         numero_revisao: numero,
         data_solicitacao: rev.data_solicitacao,
         prazo_dias: rev.prazo_dias,
