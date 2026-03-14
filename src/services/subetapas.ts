@@ -88,8 +88,20 @@ export async function listRevisoesBySubetapa(subetapaId: string): Promise<Revisa
   return (data ?? []) as Revisao[];
 }
 
+export async function listRevisoesByEtapa(etapaId: string): Promise<Revisao[]> {
+  const { data, error } = await supabase
+    .from("revisoes")
+    .select("*")
+    .eq("etapa_id", etapaId)
+    .is("subetapa_id", null)
+    .order("numero_revisao");
+  if (error) throw error;
+  return (data ?? []) as Revisao[];
+}
+
 export async function createRevisao(rev: {
-  subetapa_id: string;
+  subetapa_id?: string | null;
+  etapa_id?: string | null;
   numero_revisao: number;
   data_solicitacao: string;
   prazo_dias: number;
