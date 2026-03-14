@@ -517,6 +517,7 @@ export default function CronogramaTab({ projetoId }: Props) {
               total={etapas.length}
               subetapas={subetapasMap[etapa.id] || []}
               revisoes={revisoesMap}
+              etapaRevisoes={etapaRevisoesMap[etapa.id] || []}
               onEditEtapa={openEditEtapa}
               onDeleteEtapa={setDeleteEtapaTarget}
               onMoveEtapa={handleMoveEtapa}
@@ -524,6 +525,7 @@ export default function CronogramaTab({ projetoId }: Props) {
               onEditSubetapa={openEditSubetapa}
               onDeleteSubetapa={setDeleteSubTarget}
               onAddRevisao={handleAddRevisao}
+              onAddEtapaRevisao={handleAddEtapaRevisao}
               onToggleEtapaStatus={handleToggleEtapaStatus}
               onToggleSubStatus={handleToggleSubStatus}
             />
