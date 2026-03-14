@@ -627,6 +627,17 @@ export default function CronogramaTab({ projetoId }: Props) {
                 </SelectContent>
               </Select>
             </div>
+            {/* Show prazo field - useful for stages without substages */}
+            <div className="space-y-2">
+              <Label>Prazo até a próxima (dias)</Label>
+              <Input type="number" min="0" value={formDuracaoDias} onChange={(e) => setFormDuracaoDias(e.target.value)} />
+              <p className="text-xs text-muted-foreground">
+                Número de {countType === "uteis" ? "dias úteis" : "dias corridos"} até a próxima etapa principal.
+                {editingEtapa && (subetapasMap[editingEtapa.id]?.length ?? 0) > 0 && (
+                  <span className="block mt-1 text-yellow-600">Esta etapa possui subetapas — o encadeamento será feito pela última subetapa.</span>
+                )}
+              </p>
+            </div>
             <div className="space-y-2">
               <Label>Progresso: {formProgresso}%</Label>
               <Slider value={[formProgresso]} onValueChange={([v]) => setFormProgresso(v)} max={100} step={5} />
