@@ -2,6 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CronogramaTab from "@/components/projetos/CronogramaTab";
+import TarefasTab from "@/components/projetos/TarefasTab";
 import AndamentoResumo from "@/components/projetos/AndamentoResumo";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
