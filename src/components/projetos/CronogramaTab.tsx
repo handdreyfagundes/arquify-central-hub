@@ -69,6 +69,8 @@ export default function CronogramaTab({ projetoId }: Props) {
   const [countType, setCountType] = useState<"uteis" | "corridos">("uteis");
   const [loading, setLoading] = useState(true);
   const hasInitialRecalculatedRef = useRef(false);
+  const recalcInProgressRef = useRef(false);
+  const recalcQueuedRef = useRef(false);
 
   // Location settings
   const [pais, setPais] = useState("Brasil");
@@ -195,8 +197,7 @@ export default function CronogramaTab({ projetoId }: Props) {
         });
       }
       setEtapaDialogOpen(false);
-      await load();
-      await recalculateDates();
+      await runReactiveRecalculation();
     } catch {
       toast({ title: "Erro ao salvar etapa", variant: "destructive" });
     } finally {
@@ -209,7 +210,7 @@ export default function CronogramaTab({ projetoId }: Props) {
     try {
       await deleteEtapa(deleteEtapaTarget.id);
       setDeleteEtapaTarget(null);
-      await load();
+      await runReactiveRecalculation();
     } catch {
       toast({ title: "Erro ao excluir etapa", variant: "destructive" });
     }
@@ -223,7 +224,7 @@ export default function CronogramaTab({ projetoId }: Props) {
     setEtapas(reordered);
     try {
       await reorderEtapas(reordered.map((e, i) => ({ id: e.id, ordem: i })));
-      await recalculateDates();
+      await runReactiveRecalculation();
     } catch {
       toast({ title: "Erro ao reordenar", variant: "destructive" });
       await load();
@@ -295,8 +296,7 @@ export default function CronogramaTab({ projetoId }: Props) {
         });
       }
       setSubDialogOpen(false);
-      await load();
-      await recalculateDates();
+      await runReactiveRecalculation();
     } catch {
       toast({ title: "Erro ao salvar subetapa", variant: "destructive" });
     } finally {
@@ -309,8 +309,7 @@ export default function CronogramaTab({ projetoId }: Props) {
     try {
       await deleteSubetapa(deleteSubTarget.id);
       setDeleteSubTarget(null);
-      await load();
-      await recalculateDates();
+      await runReactiveRecalculation();
     } catch {
       toast({ title: "Erro ao excluir subetapa", variant: "destructive" });
     }
@@ -339,8 +338,7 @@ export default function CronogramaTab({ projetoId }: Props) {
 
       await updateSubetapa(subId, { data_entrega: newDelivery });
 
-      await load();
-      await recalculateDates();
+      await runReactiveRecalculation();
       toast({ title: "Revisão adicionada. Datas recalculadas." });
     } catch {
       toast({ title: "Erro ao adicionar revisão", variant: "destructive" });
@@ -372,8 +370,7 @@ export default function CronogramaTab({ projetoId }: Props) {
       // Update stage end date
       await updateEtapa(etapaId, { data_fim: newDelivery });
 
-      await load();
-      await recalculateDates();
+      await runReactiveRecalculation();
       toast({ title: "Revisão adicionada. Datas recalculadas." });
     } catch {
       toast({ title: "Erro ao adicionar revisão", variant: "destructive" });
@@ -381,7 +378,7 @@ export default function CronogramaTab({ projetoId }: Props) {
   };
 
   // === Recalculation with strict forward chaining ===
-  const recalculateDates = async () => {
+  const recalculateDates = useCallback(async () => {
     try {
       const [{ data: projetoConfig }, freshEtapas] = await Promise.all([
         supabase.from("projetos").select("count_type").eq("id", projetoId).single(),
@@ -470,13 +467,30 @@ export default function CronogramaTab({ projetoId }: Props) {
     } catch {
       toast({ title: "Erro ao recalcular datas", variant: "destructive" });
     }
-  };
+  }, [countType, load, projetoId, toast]);
+
+  const runReactiveRecalculation = useCallback(async () => {
+    if (recalcInProgressRef.current) {
+      recalcQueuedRef.current = true;
+      return;
+    }
+
+    recalcInProgressRef.current = true;
+    try {
+      do {
+        recalcQueuedRef.current = false;
+        await recalculateDates();
+      } while (recalcQueuedRef.current);
+    } finally {
+      recalcInProgressRef.current = false;
+    }
+  }, [recalculateDates]);
 
   useEffect(() => {
     if (loading || hasInitialRecalculatedRef.current) return;
     hasInitialRecalculatedRef.current = true;
-    void recalculateDates();
-  }, [loading, projetoId]);
+    void runReactiveRecalculation();
+  }, [loading, projetoId, runReactiveRecalculation]);
 
   // === Settings handler ===
   const handleSaveSettings = async () => {
@@ -492,7 +506,7 @@ export default function CronogramaTab({ projetoId }: Props) {
         .eq("id", projetoId);
       setSettingsOpen(false);
       toast({ title: "Configuração salva" });
-      await recalculateDates();
+      await runReactiveRecalculation();
     } catch {
       toast({ title: "Erro ao salvar configuração", variant: "destructive" });
     }
