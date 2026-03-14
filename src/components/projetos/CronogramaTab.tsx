@@ -383,6 +383,31 @@ export default function CronogramaTab({ projetoId }: Props) {
     }
   };
 
+  // === Revision edit handler ===
+  const handleEditRevisao = async (
+    revId: string,
+    updates: { data_solicitacao: string; prazo_dias: number; data_nova_entrega: string; observacoes: string | null }
+  ) => {
+    try {
+      await updateRevisao(revId, updates);
+      await runReactiveRecalculation();
+      toast({ title: "Revisão atualizada. Datas recalculadas." });
+    } catch {
+      toast({ title: "Erro ao editar revisão", variant: "destructive" });
+    }
+  };
+
+  // === Revision delete handler ===
+  const handleDeleteRevisao = async (revId: string) => {
+    try {
+      await deleteRevisao(revId);
+      await runReactiveRecalculation();
+      toast({ title: "Revisão excluída. Datas recalculadas." });
+    } catch {
+      toast({ title: "Erro ao excluir revisão", variant: "destructive" });
+    }
+  };
+
   // === Recalculation with strict forward chaining ===
   const recalculateDates = useCallback(async () => {
     try {
