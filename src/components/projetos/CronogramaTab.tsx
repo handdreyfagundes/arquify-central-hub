@@ -560,10 +560,10 @@ export default function CronogramaTab({ projetoId }: Props) {
               <Input value={subNome} onChange={(e) => setSubNome(e.target.value)} placeholder="Ex: Layout 2D, Imagens 3D…" />
             </div>
             <div className="space-y-2">
-              <Label>Intervalo em relação à anterior (dias)</Label>
+              <Label>Prazo até a próxima (dias)</Label>
               <Input type="number" min="0" value={subIntervalo} onChange={(e) => setSubIntervalo(e.target.value)} />
               <p className="text-xs text-muted-foreground">
-                Número de {countType === "uteis" ? "dias úteis" : "dias corridos"} após a subetapa anterior.
+                Número de {countType === "uteis" ? "dias úteis" : "dias corridos"} até a próxima subetapa, ou até a próxima etapa principal caso esta seja a última subetapa da etapa atual.
               </p>
             </div>
           </div>

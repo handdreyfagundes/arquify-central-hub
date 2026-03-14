@@ -28,6 +28,7 @@ import {
 import type { Database } from "@/integrations/supabase/types";
 import type { Subetapa, Revisao } from "@/services/subetapas";
 import SubetapaRow from "./SubetapaRow";
+import { RotateCcw } from "lucide-react";
 
 type StageStatus = Database["public"]["Enums"]["stage_status"];
 type Etapa = Database["public"]["Tables"]["etapas"]["Row"];
