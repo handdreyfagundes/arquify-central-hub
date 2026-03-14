@@ -378,44 +378,51 @@ export default function CronogramaTab({ projetoId }: Props) {
     }
   };
 
-  // === Recalculation with stage chaining ===
+  // === Recalculation with strict forward chaining ===
   const recalculateDates = async () => {
     try {
       const freshEtapas = await listEtapasByProjeto(projetoId);
       if (!freshEtapas?.length) return;
 
-      let previousEndDate: string | null = null;
+      let nextStageStartDate: string | null = null;
 
-      for (const etapa of freshEtapas) {
-        // If no explicit start date, chain from previous stage end
+      for (let index = 0; index < freshEtapas.length; index++) {
+        const etapa = freshEtapas[index];
+        const isFirstStage = index === 0;
+
+        // First stage keeps its own start date; every following stage is chained from previous anchor.
         let startDate = etapa.data_inicio;
-        if (!startDate && previousEndDate) {
-          startDate = previousEndDate;
-          await updateEtapa(etapa.id, { data_inicio: startDate });
+        if (!isFirstStage && nextStageStartDate) {
+          startDate = nextStageStartDate;
+          if (etapa.data_inicio !== nextStageStartDate) {
+            await updateEtapa(etapa.id, { data_inicio: nextStageStartDate });
+          }
         }
 
         if (!startDate) {
-          previousEndDate = null;
+          nextStageStartDate = null;
           continue;
         }
 
         const subs = await listSubetapasByEtapa(etapa.id);
+
+        // Stage without substages anchors next stage from its own end date.
         if (!subs.length) {
-          // Stage without substages: check for etapa-level revisions
           const etapaRevs = await listRevisoesByEtapa(etapa.id);
           const latestEtapaRev = etapaRevs.length > 0 ? etapaRevs[etapaRevs.length - 1] : null;
 
+          let endDate = etapa.data_fim || startDate;
           if (latestEtapaRev?.data_nova_entrega) {
-            // Revision pushed the end date
-            await updateEtapa(etapa.id, { data_fim: latestEtapaRev.data_nova_entrega });
-            previousEndDate = latestEtapaRev.data_nova_entrega;
+            endDate = latestEtapaRev.data_nova_entrega;
           } else if (etapa.duracao_dias) {
-            const endDate = toDateString(addDays(parseLocalDate(startDate), etapa.duracao_dias, countType));
-            await updateEtapa(etapa.id, { data_fim: endDate });
-            previousEndDate = endDate;
-          } else {
-            previousEndDate = etapa.data_fim || startDate;
+            endDate = toDateString(addDays(parseLocalDate(startDate), etapa.duracao_dias, countType));
           }
+
+          if (etapa.data_fim !== endDate) {
+            await updateEtapa(etapa.id, { data_fim: endDate });
+          }
+
+          nextStageStartDate = endDate;
           continue;
         }
 
@@ -432,26 +439,25 @@ export default function CronogramaTab({ projetoId }: Props) {
           })
         );
 
-        const calculated = recalcSubetapas(
-          subCalcs,
-          parseLocalDate(startDate),
-          countType
-        );
-
+        const calculated = recalcSubetapas(subCalcs, parseLocalDate(startDate), countType);
         await bulkUpdateSubetapaDates(calculated);
 
-        const lastDate = calculated[calculated.length - 1]?.data_entrega;
-        if (lastDate) {
-          await updateEtapa(etapa.id, { data_fim: lastDate });
-          // The last substage's intervalo_dias defines the gap to the NEXT main stage
-          const lastSub = [...subs].sort((a, b) => a.ordem - b.ordem).at(-1);
-          const lastInterval = lastSub?.intervalo_dias ?? 0;
-          if (lastInterval > 0) {
-            previousEndDate = toDateString(addDays(parseLocalDate(lastDate), lastInterval, countType));
-          } else {
-            previousEndDate = lastDate;
-          }
+        const lastCalculated = calculated[calculated.length - 1];
+        if (!lastCalculated) {
+          nextStageStartDate = startDate;
+          continue;
         }
+
+        if (etapa.data_fim !== lastCalculated.data_entrega) {
+          await updateEtapa(etapa.id, { data_fim: lastCalculated.data_entrega });
+        }
+
+        // Mandatory rule: next main stage starts at (last substage date + last substage prazo até a próxima).
+        const lastSub = [...subs].sort((a, b) => a.ordem - b.ordem).at(-1);
+        const lastIntervalToNext = lastSub?.intervalo_dias ?? 0;
+        nextStageStartDate = toDateString(
+          addDays(parseLocalDate(lastCalculated.data_entrega), lastIntervalToNext, countType)
+        );
       }
 
       await load();
