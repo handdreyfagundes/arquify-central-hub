@@ -380,7 +380,8 @@ export default function CronogramaTab({ projetoId }: Props) {
 
       await runReactiveRecalculation();
       toast({ title: "Revisão adicionada. Datas recalculadas." });
-    } catch {
+    } catch (err) {
+      console.error("Erro ao adicionar revisão (etapa):", err);
       toast({ title: "Erro ao adicionar revisão", variant: "destructive" });
     }
   };
