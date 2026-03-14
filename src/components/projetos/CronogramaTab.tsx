@@ -335,6 +335,7 @@ export default function CronogramaTab({ projetoId }: Props) {
 
       await createRevisao({
         subetapa_id: subId,
+        etapa_id: null,
         numero_revisao: numero,
         data_solicitacao: rev.data_solicitacao,
         prazo_dias: rev.prazo_dias,
@@ -346,7 +347,8 @@ export default function CronogramaTab({ projetoId }: Props) {
 
       await runReactiveRecalculation();
       toast({ title: "Revisão adicionada. Datas recalculadas." });
-    } catch {
+    } catch (err) {
+      console.error("Erro ao adicionar revisão (subetapa):", err);
       toast({ title: "Erro ao adicionar revisão", variant: "destructive" });
     }
   };
@@ -378,7 +380,8 @@ export default function CronogramaTab({ projetoId }: Props) {
 
       await runReactiveRecalculation();
       toast({ title: "Revisão adicionada. Datas recalculadas." });
-    } catch {
+    } catch (err) {
+      console.error("Erro ao adicionar revisão (etapa):", err);
       toast({ title: "Erro ao adicionar revisão", variant: "destructive" });
     }
   };
