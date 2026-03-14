@@ -440,22 +440,28 @@ export default function CronogramaTab({ projetoId }: Props) {
 
         const subs = await listSubetapasByEtapa(etapa.id);
 
-        // Stage without substages anchors next stage from its own end date.
+        // Stage without substages: use duracao_dias as "prazo até a próxima"
         if (!subs.length) {
           const etapaRevs = await listRevisoesByEtapa(etapa.id);
           const latestEtapaRev = etapaRevs.length > 0 ? etapaRevs[etapaRevs.length - 1] : null;
 
-          let endDate = etapa.data_fim || startDate;
+          // Calculate end date from start + duracao_dias
+          const duracaoDias = etapa.duracao_dias ?? 0;
+          let endDate = duracaoDias > 0
+            ? toDateString(addDays(parseLocalDate(startDate), duracaoDias, effectiveCountType))
+            : startDate;
+
+          // If there's a revision, use its date if later
           if (latestEtapaRev?.data_nova_entrega) {
-            endDate = latestEtapaRev.data_nova_entrega;
-          } else if (etapa.duracao_dias) {
-            endDate = toDateString(addDays(parseLocalDate(startDate), etapa.duracao_dias, effectiveCountType));
+            const revDate = latestEtapaRev.data_nova_entrega;
+            if (revDate > endDate) endDate = revDate;
           }
 
           if (etapa.data_fim !== endDate) {
             await updateEtapa(etapa.id, { data_fim: endDate });
           }
 
+          // Next stage starts from end date (the prazo is already baked into endDate since endDate = start + duracao_dias)
           nextStageStartDate = endDate;
           continue;
         }
