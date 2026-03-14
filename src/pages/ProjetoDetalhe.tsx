@@ -2,6 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AndamentoGeral from "@/components/projetos/AndamentoGeral";
+import AndamentoResumo from "@/components/projetos/AndamentoResumo";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const PROJECT_TABS = [
   { value: "visao-geral", label: "Visão geral", icon: LayoutDashboard },
-  { value: "cronograma", label: "Andamento geral", icon: CalendarRange },
+  { value: "cronograma", label: "Cronograma", icon: CalendarRange },
   { value: "tarefas", label: "Tarefas", icon: CheckSquare },
   { value: "arquivos", label: "Arquivos", icon: FileText },
   { value: "orcamentos", label: "Orçamentos", icon: Receipt },
@@ -219,10 +220,14 @@ const ProjetoDetalhe = () => {
                 )}
               </CardContent>
             </Card>
+            {/* Andamento geral summary */}
+            <div className="md:col-span-3">
+              <AndamentoResumo projetoId={projeto.id} />
+            </div>
           </div>
         </TabsContent>
 
-        {/* ANDAMENTO GERAL (Cronograma) */}
+        {/* CRONOGRAMA (full timeline) */}
         <TabsContent value="cronograma">
           <AndamentoGeral projetoId={projeto.id} />
         </TabsContent>
