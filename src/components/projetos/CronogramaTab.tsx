@@ -345,6 +345,39 @@ export default function CronogramaTab({ projetoId }: Props) {
     }
   };
 
+  // === Etapa-level revisão handler (for stages without substages) ===
+  const handleAddEtapaRevisao = async (
+    etapaId: string,
+    rev: { data_solicitacao: string; prazo_dias: number; observacoes: string }
+  ) => {
+    try {
+      const existingRevs = etapaRevisoesMap[etapaId] || [];
+      const numero = existingRevs.length + 1;
+      const newDelivery = toDateString(
+        addDays(parseLocalDate(rev.data_solicitacao), rev.prazo_dias, countType)
+      );
+
+      await createRevisao({
+        etapa_id: etapaId,
+        subetapa_id: null,
+        numero_revisao: numero,
+        data_solicitacao: rev.data_solicitacao,
+        prazo_dias: rev.prazo_dias,
+        data_nova_entrega: newDelivery,
+        observacoes: rev.observacoes || null,
+      });
+
+      // Update stage end date
+      await updateEtapa(etapaId, { data_fim: newDelivery });
+
+      await load();
+      await recalculateDates();
+      toast({ title: "Revisão adicionada. Datas recalculadas." });
+    } catch {
+      toast({ title: "Erro ao adicionar revisão", variant: "destructive" });
+    }
+  };
+
   // === Recalculation with stage chaining ===
   const recalculateDates = async () => {
     try {
