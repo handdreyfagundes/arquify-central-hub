@@ -93,9 +93,12 @@ export default function CronogramaEtapaCard({
   onEditSubetapa,
   onDeleteSubetapa,
   onAddRevisao,
+  onEditRevisao,
+  onDeleteRevisao,
   onAddEtapaRevisao,
   onToggleEtapaStatus,
   onToggleSubStatus,
+  countType,
 }: Props) {
   const cfg = STATUS_CONFIG[etapa.status];
   const progresso = etapa.progresso ?? 0;
