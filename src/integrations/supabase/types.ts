@@ -262,6 +262,7 @@ export type Database = {
           created_at: string
           data_fim: string | null
           data_inicio: string | null
+          duracao_dias: number | null
           id: string
           nome: string
           ordem: number
@@ -273,6 +274,7 @@ export type Database = {
           created_at?: string
           data_fim?: string | null
           data_inicio?: string | null
+          duracao_dias?: number | null
           id?: string
           nome: string
           ordem?: number
@@ -284,6 +286,7 @@ export type Database = {
           created_at?: string
           data_fim?: string | null
           data_inicio?: string | null
+          duracao_dias?: number | null
           id?: string
           nome?: string
           ordem?: number
@@ -618,6 +621,7 @@ export type Database = {
         Row: {
           cliente_id: string | null
           cor: string | null
+          count_type: string
           created_at: string
           descricao: string | null
           endereco_obra: string | null
@@ -635,6 +639,7 @@ export type Database = {
         Insert: {
           cliente_id?: string | null
           cor?: string | null
+          count_type?: string
           created_at?: string
           descricao?: string | null
           endereco_obra?: string | null
@@ -652,6 +657,7 @@ export type Database = {
         Update: {
           cliente_id?: string | null
           cor?: string | null
+          count_type?: string
           created_at?: string
           descricao?: string | null
           endereco_obra?: string | null
@@ -679,6 +685,47 @@ export type Database = {
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      revisoes: {
+        Row: {
+          created_at: string
+          data_nova_entrega: string | null
+          data_solicitacao: string
+          id: string
+          numero_revisao: number
+          observacoes: string | null
+          prazo_dias: number
+          subetapa_id: string
+        }
+        Insert: {
+          created_at?: string
+          data_nova_entrega?: string | null
+          data_solicitacao: string
+          id?: string
+          numero_revisao?: number
+          observacoes?: string | null
+          prazo_dias?: number
+          subetapa_id: string
+        }
+        Update: {
+          created_at?: string
+          data_nova_entrega?: string | null
+          data_solicitacao?: string
+          id?: string
+          numero_revisao?: number
+          observacoes?: string | null
+          prazo_dias?: number
+          subetapa_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revisoes_subetapa_id_fkey"
+            columns: ["subetapa_id"]
+            isOneToOne: false
+            referencedRelation: "subetapas"
             referencedColumns: ["id"]
           },
         ]
@@ -732,6 +779,47 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_rentabilidade_projetos"
             referencedColumns: ["projeto_id"]
+          },
+        ]
+      }
+      subetapas: {
+        Row: {
+          created_at: string
+          data_entrega: string | null
+          etapa_id: string
+          id: string
+          intervalo_dias: number
+          nome: string
+          ordem: number
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          data_entrega?: string | null
+          etapa_id: string
+          id?: string
+          intervalo_dias?: number
+          nome: string
+          ordem?: number
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          data_entrega?: string | null
+          etapa_id?: string
+          id?: string
+          intervalo_dias?: number
+          nome?: string
+          ordem?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subetapas_etapa_id_fkey"
+            columns: ["etapa_id"]
+            isOneToOne: false
+            referencedRelation: "etapas"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -978,12 +1066,17 @@ export type Database = {
         Args: { _cidade?: string; _estado?: string; _workspace_name: string }
         Returns: string
       }
+      get_etapa_workspace_id: { Args: { _etapa_id: string }; Returns: string }
       get_project_workspace_id: {
         Args: { _projeto_id: string }
         Returns: string
       }
       get_solicitacao_workspace_id: {
         Args: { _solicitacao_id: string }
+        Returns: string
+      }
+      get_subetapa_workspace_id: {
+        Args: { _subetapa_id: string }
         Returns: string
       }
       get_user_workspace_id: { Args: { _user_id: string }; Returns: string }
