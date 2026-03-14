@@ -105,7 +105,6 @@ export default function CronogramaEtapaCard({
   const [saving, setSaving] = useState(false);
 
   const handleCircleClick = () => {
-    // Only allow direct toggle if stage has no substages
     if (subetapas.length === 0) {
       setConfirmOpen(true);
     }
@@ -116,6 +115,19 @@ export default function CronogramaEtapaCard({
     setConfirmOpen(false);
   };
 
+  const handleSaveEtapaRevisao = async () => {
+    if (!revDate || !onAddEtapaRevisao) return;
+    setSaving(true);
+    await onAddEtapaRevisao(etapa.id, {
+      data_solicitacao: format(revDate, "yyyy-MM-dd"),
+      prazo_dias: parseInt(revPrazo) || 5,
+      observacoes: revObs,
+    });
+    setSaving(false);
+    setRevDialogOpen(false);
+    setRevObs("");
+    setRevPrazo("5");
+  };
   const isCompleted = etapa.status === "concluida";
 
   return (
