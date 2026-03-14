@@ -178,6 +178,7 @@ export default function CronogramaTab({ projetoId }: Props) {
     setFormDataInicio(etapa.data_inicio ? new Date(etapa.data_inicio + "T00:00:00") : undefined);
     setFormStatus(etapa.status);
     setFormProgresso(etapa.progresso ?? 0);
+    setFormDuracaoDias(String(etapa.duracao_dias ?? 0));
     setEtapaDialogOpen(true);
   };
 
