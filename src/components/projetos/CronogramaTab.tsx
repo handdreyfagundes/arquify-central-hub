@@ -197,8 +197,7 @@ export default function CronogramaTab({ projetoId }: Props) {
         });
       }
       setEtapaDialogOpen(false);
-      await load();
-      await recalculateDates();
+      await runReactiveRecalculation();
     } catch {
       toast({ title: "Erro ao salvar etapa", variant: "destructive" });
     } finally {
