@@ -1,0 +1,212 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import {
+  CalendarIcon,
+  Plus,
+  Pencil,
+  Trash2,
+  RotateCcw,
+  ChevronDown,
+  ChevronRight,
+  Circle,
+  CheckCircle2,
+  Clock,
+} from "lucide-react";
+import type { Subetapa, Revisao } from "@/services/subetapas";
+
+interface Props {
+  sub: Subetapa;
+  revisoes: Revisao[];
+  onEdit: (sub: Subetapa) => void;
+  onDelete: (sub: Subetapa) => void;
+  onAddRevisao: (subId: string, rev: {
+    data_solicitacao: string;
+    prazo_dias: number;
+    observacoes: string;
+  }) => void;
+}
+
+const STATUS_ICON: Record<string, { icon: typeof Circle; color: string }> = {
+  pendente: { icon: Circle, color: "text-muted-foreground" },
+  em_andamento: { icon: Clock, color: "text-primary" },
+  concluida: { icon: CheckCircle2, color: "text-emerald-500" },
+};
+
+export default function SubetapaRow({ sub, revisoes, onEdit, onDelete, onAddRevisao }: Props) {
+  const [expanded, setExpanded] = useState(false);
+  const [revDialogOpen, setRevDialogOpen] = useState(false);
+  const [revDate, setRevDate] = useState<Date | undefined>(new Date());
+  const [revPrazo, setRevPrazo] = useState("5");
+  const [revObs, setRevObs] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const statusCfg = STATUS_ICON[sub.status] || STATUS_ICON.pendente;
+  const Icon = statusCfg.icon;
+  const hasRevisoes = revisoes.length > 0;
+
+  const handleSaveRevisao = async () => {
+    if (!revDate) return;
+    setSaving(true);
+    await onAddRevisao(sub.id, {
+      data_solicitacao: format(revDate, "yyyy-MM-dd"),
+      prazo_dias: parseInt(revPrazo) || 5,
+      observacoes: revObs,
+    });
+    setSaving(false);
+    setRevDialogOpen(false);
+    setRevObs("");
+    setRevPrazo("5");
+  };
+
+  return (
+    <div className="group/sub">
+      {/* Main row */}
+      <div className="flex items-center gap-3 py-2 px-3 rounded-md hover:bg-accent/50 transition-colors">
+        <Icon className={cn("size-4 shrink-0", statusCfg.color)} />
+
+        <button
+          onClick={() => hasRevisoes && setExpanded(!expanded)}
+          className="flex items-center gap-1 min-w-0 flex-1"
+        >
+          <span className="text-sm font-medium text-foreground truncate">{sub.nome}</span>
+          {hasRevisoes && (
+            expanded
+              ? <ChevronDown className="size-3.5 text-muted-foreground shrink-0" />
+              : <ChevronRight className="size-3.5 text-muted-foreground shrink-0" />
+          )}
+        </button>
+
+        {sub.intervalo_dias > 0 && (
+          <Badge variant="secondary" className="text-[10px] shrink-0">
+            +{sub.intervalo_dias}d
+          </Badge>
+        )}
+
+        {sub.data_entrega && (
+          <span className="text-xs text-muted-foreground shrink-0 flex items-center gap-1">
+            <CalendarIcon className="size-3" />
+            {format(new Date(sub.data_entrega + "T00:00:00"), "dd/MM/yyyy")}
+          </span>
+        )}
+
+        {/* Actions */}
+        <div className="flex gap-0.5 opacity-0 group-hover/sub:opacity-100 transition-opacity shrink-0">
+          <Button variant="ghost" size="icon" className="size-7" onClick={() => setRevDialogOpen(true)}>
+            <RotateCcw className="size-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="size-7" onClick={() => onEdit(sub)}>
+            <Pencil className="size-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="size-7 text-destructive" onClick={() => onDelete(sub)}>
+            <Trash2 className="size-3.5" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Revision history */}
+      {expanded && hasRevisoes && (
+        <div className="ml-10 mb-2 space-y-1 border-l-2 border-dashed border-muted pl-3">
+          {revisoes.map((rev) => (
+            <div key={rev.id} className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+              <Badge variant="outline" className="text-[9px] shrink-0">
+                Rev {String(rev.numero_revisao).padStart(2, "0")}
+              </Badge>
+              <span>Solicitada {format(new Date(rev.data_solicitacao + "T00:00:00"), "dd/MM")}</span>
+              <span>→ +{rev.prazo_dias}d</span>
+              {rev.data_nova_entrega && (
+                <span className="font-medium text-foreground">
+                  Nova entrega: {format(new Date(rev.data_nova_entrega + "T00:00:00"), "dd/MM/yyyy")}
+                </span>
+              )}
+              {rev.observacoes && (
+                <span className="truncate italic">"{rev.observacoes}"</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Revision dialog */}
+      <Dialog open={revDialogOpen} onOpenChange={setRevDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adicionar revisão — {sub.nome}</DialogTitle>
+            <DialogDescription>
+              Registre uma revisão solicitada pelo cliente. As datas serão recalculadas automaticamente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Data da solicitação</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn("w-full justify-start text-left font-normal", !revDate && "text-muted-foreground")}
+                  >
+                    <CalendarIcon className="mr-2 size-4" />
+                    {revDate ? format(revDate, "dd/MM/yyyy") : "Selecionar data"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={revDate}
+                    onSelect={setRevDate}
+                    locale={ptBR}
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-2">
+              <Label>Prazo da revisão (dias)</Label>
+              <Input
+                type="number"
+                min="1"
+                value={revPrazo}
+                onChange={(e) => setRevPrazo(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Observações (opcional)</Label>
+              <Textarea
+                value={revObs}
+                onChange={(e) => setRevObs(e.target.value)}
+                placeholder="Detalhes da revisão…"
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRevDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaveRevisao} disabled={saving || !revDate}>
+              {saving ? "Salvando…" : "Salvar revisão"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
