@@ -61,7 +61,7 @@ interface Props {
   countType: "uteis" | "corridos";
 }
 
-export default function SubetapaRow({ sub, revisoes, onEdit, onDelete, onAddRevisao, onToggleStatus }: Props) {
+export default function SubetapaRow({ sub, revisoes, onEdit, onDelete, onAddRevisao, onEditRevisao, onDeleteRevisao, onToggleStatus, countType }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [revDialogOpen, setRevDialogOpen] = useState(false);
   const [revDate, setRevDate] = useState<Date | undefined>(new Date());
@@ -69,6 +69,14 @@ export default function SubetapaRow({ sub, revisoes, onEdit, onDelete, onAddRevi
   const [revObs, setRevObs] = useState("");
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // Edit revision state
+  const [editRevDialogOpen, setEditRevDialogOpen] = useState(false);
+  const [editingRev, setEditingRev] = useState<Revisao | null>(null);
+  const [editRevDate, setEditRevDate] = useState<Date | undefined>(new Date());
+  const [editRevPrazo, setEditRevPrazo] = useState("5");
+  const [editRevObs, setEditRevObs] = useState("");
+  const [deleteRevTarget, setDeleteRevTarget] = useState<Revisao | null>(null);
 
   const isCompleted = sub.status === "concluida";
   const isInProgress = sub.status === "em_andamento";
