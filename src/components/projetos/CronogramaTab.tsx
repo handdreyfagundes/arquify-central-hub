@@ -471,6 +471,12 @@ export default function CronogramaTab({ projetoId }: Props) {
     }
   };
 
+  useEffect(() => {
+    if (loading || hasInitialRecalculatedRef.current) return;
+    hasInitialRecalculatedRef.current = true;
+    void recalculateDates();
+  }, [loading, projetoId]);
+
   // === Settings handler ===
   const handleSaveSettings = async () => {
     try {
