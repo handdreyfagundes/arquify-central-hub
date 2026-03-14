@@ -583,6 +583,9 @@ export default function CronogramaTab({ projetoId }: Props) {
         </div>
       </div>
 
+      {/* Stage flow overview */}
+      <StageFlowOverview etapas={etapas} subetapasMap={subetapasMap} />
+
       {/* Etapa cards */}
       {etapas.length === 0 ? (
         <Card>
