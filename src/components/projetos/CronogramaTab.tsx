@@ -46,6 +46,8 @@ import {
   listRevisoesBySubetapa,
   listRevisoesByEtapa,
   createRevisao,
+  updateRevisao,
+  deleteRevisao,
 } from "@/services/subetapas";
 import type { Subetapa, Revisao } from "@/services/subetapas";
 import { recalcSubetapas, parseLocalDate, addDays, toDateString } from "@/lib/cronograma-utils";
