@@ -24,8 +24,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import {
   CalendarIcon,
   Plus,
@@ -35,11 +42,11 @@ import {
   ChevronDown,
   GripVertical,
   Check,
+  RotateCcw,
 } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import type { Subetapa, Revisao } from "@/services/subetapas";
 import SubetapaRow from "./SubetapaRow";
-import { RotateCcw } from "lucide-react";
 
 type StageStatus = Database["public"]["Enums"]["stage_status"];
 type Etapa = Database["public"]["Tables"]["etapas"]["Row"];
