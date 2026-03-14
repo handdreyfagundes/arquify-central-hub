@@ -2,15 +2,17 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Filter, Play, MessageSquare, ChevronDown } from "lucide-react";
+import { Plus, Filter, Play, MessageSquare, ChevronDown, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  SelectGroup, SelectLabel,
 } from "@/components/ui/select";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -19,6 +21,13 @@ import {
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Collapsible, CollapsibleContent, CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -83,6 +92,7 @@ export default function TarefasTab({ projetoId }: Props) {
   const [subetapas, setSubetapas] = useState<Subetapa[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [timeTotals, setTimeTotals] = useState<TimeTotal[]>([]);
+  const [tarefaResponsaveis, setTarefaResponsaveis] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
 
   const [sortBy, setSortBy] = useState<string>("created_at");
@@ -97,18 +107,25 @@ export default function TarefasTab({ projetoId }: Props) {
   const [specOpen, setSpecOpen] = useState<string | null>(null);
   const [timerOpen, setTimerOpen] = useState<string | null>(null);
   const [obsOpen, setObsOpen] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  // Completed section
+  const [completedOpen, setCompletedOpen] = useState(true);
 
   const fetchAll = useCallback(async () => {
     try {
-      const [tarefasRes, etapasRes, subetapasRes, profilesRes, timeRes] = await Promise.all([
+      const etapaIdsRes = await supabase.from("etapas").select("id").eq("projeto_id", projetoId);
+      const etapaIds = etapaIdsRes.data?.map((e) => e.id) ?? [];
+
+      const [tarefasRes, etapasRes, subetapasRes, profilesRes, timeRes, respRes] = await Promise.all([
         supabase.from("tarefas").select("*").eq("projeto_id", projetoId).order("created_at", { ascending: false }),
         supabase.from("etapas").select("id, nome, ordem").eq("projeto_id", projetoId).order("ordem"),
-        supabase.from("subetapas").select("id, etapa_id, nome, ordem").in(
-          "etapa_id",
-          (await supabase.from("etapas").select("id").eq("projeto_id", projetoId)).data?.map((e) => e.id) ?? []
-        ).order("ordem"),
+        etapaIds.length > 0
+          ? supabase.from("subetapas").select("id, etapa_id, nome, ordem").in("etapa_id", etapaIds).order("ordem")
+          : Promise.resolve({ data: [], error: null }),
         supabase.from("profiles").select("user_id, name"),
         supabase.from("time_entries").select("tarefa_id, duration_minutes").eq("projeto_id", projetoId).not("tarefa_id", "is", null),
+        supabase.from("tarefa_responsaveis" as any).select("tarefa_id, user_id"),
       ]);
 
       if (tarefasRes.error) throw tarefasRes.error;
@@ -119,12 +136,20 @@ export default function TarefasTab({ projetoId }: Props) {
 
       // Aggregate time per task
       const timeMap = new Map<string, number>();
-      (timeRes.data ?? []).forEach((entry) => {
+      (timeRes.data ?? []).forEach((entry: any) => {
         if (entry.tarefa_id) {
           timeMap.set(entry.tarefa_id, (timeMap.get(entry.tarefa_id) ?? 0) + (entry.duration_minutes ?? 0));
         }
       });
       setTimeTotals(Array.from(timeMap.entries()).map(([tarefa_id, total]) => ({ tarefa_id, total })));
+
+      // Aggregate responsaveis per task
+      const respMap: Record<string, string[]> = {};
+      ((respRes.data ?? []) as any[]).forEach((r: any) => {
+        if (!respMap[r.tarefa_id]) respMap[r.tarefa_id] = [];
+        respMap[r.tarefa_id].push(r.user_id);
+      });
+      setTarefaResponsaveis(respMap);
     } catch (err: any) {
       toast({ title: "Erro ao carregar tarefas", description: err.message, variant: "destructive" });
     } finally {
@@ -134,17 +159,16 @@ export default function TarefasTab({ projetoId }: Props) {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  const getTimeForTask = (taskId: string) => {
+  const getDecimalHours = (taskId: string) => {
     const entry = timeTotals.find((t) => t.tarefa_id === taskId);
     const mins = entry?.total ?? 0;
-    const h = Math.floor(mins / 60);
-    const m = mins % 60;
-    return m > 0 ? `${h}h${m}m` : `${h}h`;
+    if (mins === 0) return "0 h";
+    const decimal = Math.round((mins / 60) * 1000) / 1000;
+    return `${decimal} h`;
   };
 
   const getEtapaName = (etapaId: string | null) => {
     if (!etapaId) return "—";
-    // Check if it's a substage ID
     const sub = subetapas.find((s) => s.id === etapaId);
     if (sub) {
       const parent = etapas.find((e) => e.id === sub.etapa_id);
@@ -157,6 +181,33 @@ export default function TarefasTab({ projetoId }: Props) {
   const getProfileName = (userId: string | null) => {
     if (!userId) return "—";
     return profiles.find((p) => p.user_id === userId)?.name ?? "—";
+  };
+
+  const getResponsaveisNames = (tarefaId: string) => {
+    const ids = tarefaResponsaveis[tarefaId] ?? [];
+    if (ids.length === 0) return "—";
+    return ids.map((id) => profiles.find((p) => p.user_id === id)?.name ?? "?").join(", ");
+  };
+
+  const toggleResponsavel = async (tarefaId: string, userId: string) => {
+    const current = tarefaResponsaveis[tarefaId] ?? [];
+    try {
+      if (current.includes(userId)) {
+        await supabase.from("tarefa_responsaveis" as any).delete().eq("tarefa_id", tarefaId).eq("user_id", userId);
+        setTarefaResponsaveis((prev) => ({
+          ...prev,
+          [tarefaId]: (prev[tarefaId] ?? []).filter((id) => id !== userId),
+        }));
+      } else {
+        await supabase.from("tarefa_responsaveis" as any).insert({ tarefa_id: tarefaId, user_id: userId } as any);
+        setTarefaResponsaveis((prev) => ({
+          ...prev,
+          [tarefaId]: [...(prev[tarefaId] ?? []), userId],
+        }));
+      }
+    } catch (err: any) {
+      toast({ title: "Erro ao atualizar responsável", description: err.message, variant: "destructive" });
+    }
   };
 
   const formatRevision = (rev: number | null) => {
@@ -190,6 +241,23 @@ export default function TarefasTab({ projetoId }: Props) {
     }
   };
 
+  const deleteTarefa = async (id: string) => {
+    try {
+      const { error } = await supabase.from("tarefas").delete().eq("id", id);
+      if (error) throw error;
+      setTarefas((prev) => prev.filter((t) => t.id !== id));
+      toast({ title: "Tarefa excluída" });
+    } catch (err: any) {
+      toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });
+    }
+    setDeleteConfirm(null);
+  };
+
+  const toggleComplete = async (tarefa: Tarefa) => {
+    const newStatus = tarefa.status === "concluida" ? "pendente" : "concluida";
+    await updateField(tarefa.id, "status", newStatus);
+  };
+
   const handleInlineBlur = (id: string, field: string) => {
     if (editingCell?.id === id && editingCell?.field === field) {
       updateField(id, field, editValue);
@@ -205,8 +273,12 @@ export default function TarefasTab({ projetoId }: Props) {
     }
   };
 
-  // Sorting
-  const sorted = [...tarefas]
+  // Split active vs completed
+  const activeTarefas = tarefas.filter((t) => t.status !== "concluida");
+  const completedTarefas = tarefas.filter((t) => t.status === "concluida");
+
+  // Sorting & filtering (active only)
+  const sorted = [...activeTarefas]
     .filter((t) => !filterStatus || t.status === filterStatus)
     .sort((a, b) => {
       let cmp = 0;
@@ -230,7 +302,7 @@ export default function TarefasTab({ projetoId }: Props) {
           cmp = (a.prazo_limite ?? "9999").localeCompare(b.prazo_limite ?? "9999");
           break;
         case "responsavel":
-          cmp = getProfileName(a.responsavel_id).localeCompare(getProfileName(b.responsavel_id));
+          cmp = getResponsaveisNames(a.id).localeCompare(getResponsaveisNames(b.id));
           break;
         default:
           cmp = (a.created_at ?? "").localeCompare(b.created_at ?? "");
@@ -240,6 +312,239 @@ export default function TarefasTab({ projetoId }: Props) {
 
   const statusInfo = (status: string) =>
     STATUS_OPTIONS.find((s) => s.value === status) ?? STATUS_OPTIONS[0];
+
+  const renderRow = (tarefa: Tarefa, isCompleted = false) => {
+    const si = statusInfo(tarefa.status);
+    const respIds = tarefaResponsaveis[tarefa.id] ?? [];
+
+    return (
+      <TableRow key={tarefa.id} className={cn("group", isCompleted && "opacity-60")}>
+        {/* CHECKBOX + TRASH + TASK */}
+        <TableCell className="py-2">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={tarefa.status === "concluida"}
+              onCheckedChange={() => toggleComplete(tarefa)}
+              className="shrink-0"
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+              onClick={() => setDeleteConfirm(tarefa.id)}
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+            {editingCell?.id === tarefa.id && editingCell.field === "titulo" ? (
+              <Input
+                autoFocus
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onBlur={() => handleInlineBlur(tarefa.id, "titulo")}
+                onKeyDown={(e) => handleInlineKeyDown(e, tarefa.id, "titulo")}
+                className="h-7 text-sm border-primary/30"
+              />
+            ) : (
+              <span
+                className="cursor-text text-sm hover:text-primary transition-colors truncate"
+                onClick={() => {
+                  setEditingCell({ id: tarefa.id, field: "titulo" });
+                  setEditValue(tarefa.titulo ?? "");
+                }}
+              >
+                {tarefa.titulo || <span className="text-muted-foreground italic">Sem título</span>}
+              </span>
+            )}
+          </div>
+        </TableCell>
+
+        {/* STAGE */}
+        <TableCell className="py-2">
+          <Select
+            value={tarefa.etapa_id ?? "none"}
+            onValueChange={(v) => updateField(tarefa.id, "etapa_id", v === "none" ? null : v)}
+          >
+            <SelectTrigger className="h-7 text-xs border-none shadow-none bg-transparent hover:bg-muted px-1">
+              <SelectValue>{getEtapaName(tarefa.etapa_id)}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">—</SelectItem>
+              {etapas.map((etapa) => {
+                const subs = subetapas.filter((s) => s.etapa_id === etapa.id);
+                return (
+                  <SelectGroup key={etapa.id}>
+                    <SelectItem value={etapa.id} className="font-medium">
+                      {etapa.nome}
+                    </SelectItem>
+                    {subs.map((sub) => (
+                      <SelectItem key={sub.id} value={sub.id} className="pl-8 text-xs text-muted-foreground">
+                        ↳ {sub.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        </TableCell>
+
+        {/* REVISION */}
+        <TableCell className="py-2">
+          {editingCell?.id === tarefa.id && editingCell.field === "revisao" ? (
+            <Input
+              autoFocus
+              type="number"
+              min={0}
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onBlur={() => {
+                updateField(tarefa.id, "revisao", parseInt(editValue) || 0);
+                setEditingCell(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  updateField(tarefa.id, "revisao", parseInt(editValue) || 0);
+                  setEditingCell(null);
+                } else if (e.key === "Escape") setEditingCell(null);
+              }}
+              className="h-7 w-16 text-xs border-primary/30"
+            />
+          ) : (
+            <span
+              className="cursor-text text-xs text-muted-foreground hover:text-primary transition-colors"
+              onClick={() => {
+                setEditingCell({ id: tarefa.id, field: "revisao" });
+                setEditValue(String(tarefa.revisao ?? 0));
+              }}
+            >
+              {formatRevision(tarefa.revisao)}
+            </span>
+          )}
+        </TableCell>
+
+        {/* SPECIFICATION */}
+        <TableCell className="py-2">
+          <button
+            onClick={() => setSpecOpen(tarefa.id)}
+            className="text-xs text-muted-foreground hover:text-primary transition-colors text-left"
+          >
+            {tarefa.ambiente && tarefa.item
+              ? `${tarefa.ambiente}: ${tarefa.item}`
+              : tarefa.ambiente || tarefa.item || <span className="italic">Definir</span>}
+          </button>
+        </TableCell>
+
+        {/* STATUS */}
+        <TableCell className="py-2">
+          <Select
+            value={tarefa.status}
+            onValueChange={(v) => updateField(tarefa.id, "status", v)}
+          >
+            <SelectTrigger className="h-7 border-none shadow-none bg-transparent px-0">
+              <Badge className={cn("text-[10px] font-medium", si.color)}>
+                {si.label}
+              </Badge>
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map((s) => (
+                <SelectItem key={s.value} value={s.value}>
+                  <span className="flex items-center gap-2">
+                    <span className={cn("size-2 rounded-full", s.color)} />
+                    {s.label}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </TableCell>
+
+        {/* DEADLINE */}
+        <TableCell className="py-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="text-xs text-muted-foreground hover:text-primary transition-colors">
+                {tarefa.prazo_limite
+                  ? format(new Date(tarefa.prazo_limite + "T00:00:00"), "dd/MM/yyyy")
+                  : <span className="italic">Definir</span>}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                locale={ptBR}
+                selected={tarefa.prazo_limite ? new Date(tarefa.prazo_limite + "T00:00:00") : undefined}
+                onSelect={(date) => {
+                  if (date) updateField(tarefa.id, "prazo_limite", format(date, "yyyy-MM-dd"));
+                }}
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+        </TableCell>
+
+        {/* RESPONSIBLE (multi-select) */}
+        <TableCell className="py-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="text-xs text-muted-foreground hover:text-primary transition-colors text-left max-w-[140px] truncate">
+                {getResponsaveisNames(tarefa.id)}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-2" align="start">
+              <div className="space-y-1">
+                {profiles.map((p) => (
+                  <label
+                    key={p.user_id}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer text-xs"
+                  >
+                    <Checkbox
+                      checked={respIds.includes(p.user_id)}
+                      onCheckedChange={() => toggleResponsavel(tarefa.id, p.user_id)}
+                    />
+                    {p.name}
+                  </label>
+                ))}
+                {profiles.length === 0 && (
+                  <span className="text-xs text-muted-foreground px-2">Nenhum membro</span>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+        </TableCell>
+
+        {/* HOURS (decimal) */}
+        <TableCell className="py-2 text-center">
+          <span className="text-xs tabular-nums text-muted-foreground">
+            {getDecimalHours(tarefa.id)}
+          </span>
+        </TableCell>
+
+        {/* TIMER */}
+        <TableCell className="py-2 text-center">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7"
+            onClick={() => setTimerOpen(tarefa.id)}
+          >
+            <Play className="size-3.5 text-primary" />
+          </Button>
+        </TableCell>
+
+        {/* OBS */}
+        <TableCell className="py-2 text-center">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7"
+            onClick={() => setObsOpen(tarefa.id)}
+          >
+            <MessageSquare className="size-3.5 text-muted-foreground" />
+          </Button>
+        </TableCell>
+      </TableRow>
+    );
+  };
 
   if (loading) {
     return (
@@ -259,7 +564,6 @@ export default function TarefasTab({ projetoId }: Props) {
         </Button>
 
         <div className="flex items-center gap-2">
-          {/* Status filter */}
           <Select value={filterStatus ?? "all"} onValueChange={(v) => setFilterStatus(v === "all" ? null : v)}>
             <SelectTrigger className="h-8 w-[150px] text-xs">
               <SelectValue placeholder="Status" />
@@ -272,7 +576,6 @@ export default function TarefasTab({ projetoId }: Props) {
             </SelectContent>
           </Select>
 
-          {/* Sort */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
@@ -305,12 +608,12 @@ export default function TarefasTab({ projetoId }: Props) {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Active tasks table */}
       <div className="rounded-lg border bg-card">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className="min-w-[200px]">Tarefa</TableHead>
+              <TableHead className="min-w-[220px]">Tarefa</TableHead>
               <TableHead className="min-w-[160px]">Etapa</TableHead>
               <TableHead className="w-[80px]">Revisão</TableHead>
               <TableHead className="min-w-[140px]">Especificação</TableHead>
@@ -330,216 +633,52 @@ export default function TarefasTab({ projetoId }: Props) {
                 </TableCell>
               </TableRow>
             )}
-            {sorted.map((tarefa) => {
-              const si = statusInfo(tarefa.status);
-              return (
-                <TableRow key={tarefa.id} className="group">
-                  {/* COL 1 — TASK */}
-                  <TableCell className="py-2">
-                    {editingCell?.id === tarefa.id && editingCell.field === "titulo" ? (
-                      <Input
-                        autoFocus
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        onBlur={() => handleInlineBlur(tarefa.id, "titulo")}
-                        onKeyDown={(e) => handleInlineKeyDown(e, tarefa.id, "titulo")}
-                        className="h-7 text-sm border-primary/30"
-                      />
-                    ) : (
-                      <span
-                        className="cursor-text text-sm hover:text-primary transition-colors"
-                        onClick={() => {
-                          setEditingCell({ id: tarefa.id, field: "titulo" });
-                          setEditValue(tarefa.titulo ?? "");
-                        }}
-                      >
-                        {tarefa.titulo || <span className="text-muted-foreground italic">Sem título</span>}
-                      </span>
-                    )}
-                  </TableCell>
-
-                  {/* COL 2 — STAGE */}
-                  <TableCell className="py-2">
-                    <Select
-                      value={tarefa.etapa_id ?? "none"}
-                      onValueChange={(v) => updateField(tarefa.id, "etapa_id", v === "none" ? null : v)}
-                    >
-                      <SelectTrigger className="h-7 text-xs border-none shadow-none bg-transparent hover:bg-muted px-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">—</SelectItem>
-                        {etapas.map((etapa) => {
-                          const subs = subetapas.filter((s) => s.etapa_id === etapa.id);
-                          return (
-                            <div key={etapa.id}>
-                              <SelectItem value={etapa.id} className="font-medium">
-                                {etapa.nome}
-                              </SelectItem>
-                              {subs.map((sub) => (
-                                <SelectItem key={sub.id} value={sub.id} className="pl-6 text-xs">
-                                  {sub.nome}
-                                </SelectItem>
-                              ))}
-                            </div>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-
-                  {/* COL 3 — REVISION */}
-                  <TableCell className="py-2">
-                    {editingCell?.id === tarefa.id && editingCell.field === "revisao" ? (
-                      <Input
-                        autoFocus
-                        type="number"
-                        min={0}
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        onBlur={() => {
-                          updateField(tarefa.id, "revisao", parseInt(editValue) || 0);
-                          setEditingCell(null);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            updateField(tarefa.id, "revisao", parseInt(editValue) || 0);
-                            setEditingCell(null);
-                          } else if (e.key === "Escape") setEditingCell(null);
-                        }}
-                        className="h-7 w-16 text-xs border-primary/30"
-                      />
-                    ) : (
-                      <span
-                        className="cursor-text text-xs text-muted-foreground hover:text-primary transition-colors"
-                        onClick={() => {
-                          setEditingCell({ id: tarefa.id, field: "revisao" });
-                          setEditValue(String(tarefa.revisao ?? 0));
-                        }}
-                      >
-                        {formatRevision(tarefa.revisao)}
-                      </span>
-                    )}
-                  </TableCell>
-
-                  {/* COL 4 — SPECIFICATION */}
-                  <TableCell className="py-2">
-                    <button
-                      onClick={() => setSpecOpen(tarefa.id)}
-                      className="text-xs text-muted-foreground hover:text-primary transition-colors text-left"
-                    >
-                      {tarefa.ambiente && tarefa.item
-                        ? `${tarefa.ambiente}: ${tarefa.item}`
-                        : tarefa.ambiente || tarefa.item || <span className="italic">Definir</span>}
-                    </button>
-                  </TableCell>
-
-                  {/* COL 5 — STATUS */}
-                  <TableCell className="py-2">
-                    <Select
-                      value={tarefa.status}
-                      onValueChange={(v) => updateField(tarefa.id, "status", v)}
-                    >
-                      <SelectTrigger className="h-7 border-none shadow-none bg-transparent px-0">
-                        <Badge className={cn("text-[10px] font-medium", si.color)}>
-                          {si.label}
-                        </Badge>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {STATUS_OPTIONS.map((s) => (
-                          <SelectItem key={s.value} value={s.value}>
-                            <span className="flex items-center gap-2">
-                              <span className={cn("size-2 rounded-full", s.color)} />
-                              {s.label}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-
-                  {/* COL 6 — DEADLINE */}
-                  <TableCell className="py-2">
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button className="text-xs text-muted-foreground hover:text-primary transition-colors">
-                          {tarefa.prazo_limite
-                            ? format(new Date(tarefa.prazo_limite + "T00:00:00"), "dd/MM/yyyy")
-                            : <span className="italic">Definir</span>}
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          locale={ptBR}
-                          selected={tarefa.prazo_limite ? new Date(tarefa.prazo_limite + "T00:00:00") : undefined}
-                          onSelect={(date) => {
-                            if (date) {
-                              updateField(tarefa.id, "prazo_limite", format(date, "yyyy-MM-dd"));
-                            }
-                          }}
-                          className="p-3 pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </TableCell>
-
-                  {/* COL 7 — RESPONSIBLE */}
-                  <TableCell className="py-2">
-                    <Select
-                      value={tarefa.responsavel_id ?? "none"}
-                      onValueChange={(v) => updateField(tarefa.id, "responsavel_id", v === "none" ? null : v)}
-                    >
-                      <SelectTrigger className="h-7 text-xs border-none shadow-none bg-transparent hover:bg-muted px-1">
-                        <SelectValue>
-                          {getProfileName(tarefa.responsavel_id)}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">—</SelectItem>
-                        {profiles.map((p) => (
-                          <SelectItem key={p.user_id} value={p.user_id}>{p.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-
-                  {/* COL 8 — HOURS */}
-                  <TableCell className="py-2 text-center">
-                    <span className="text-xs tabular-nums text-muted-foreground">
-                      {getTimeForTask(tarefa.id)}
-                    </span>
-                  </TableCell>
-
-                  {/* COL 9 — TIMER */}
-                  <TableCell className="py-2 text-center">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-7"
-                      onClick={() => setTimerOpen(tarefa.id)}
-                    >
-                      <Play className="size-3.5 text-primary" />
-                    </Button>
-                  </TableCell>
-
-                  {/* COL 10 — OBS */}
-                  <TableCell className="py-2 text-center">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-7"
-                      onClick={() => setObsOpen(tarefa.id)}
-                    >
-                      <MessageSquare className="size-3.5 text-muted-foreground" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+            {sorted.map((tarefa) => renderRow(tarefa))}
           </TableBody>
         </Table>
       </div>
+
+      {/* Completed tasks collapsible section */}
+      {completedTarefas.length > 0 && (
+        <Collapsible open={completedOpen} onOpenChange={setCompletedOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="gap-2 text-xs text-muted-foreground">
+              <ChevronDown className={cn("size-4 transition-transform", !completedOpen && "-rotate-90")} />
+              Tarefas concluídas ({completedTarefas.length})
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="rounded-lg border bg-card mt-2">
+              <Table>
+                <TableBody>
+                  {completedTarefas.map((tarefa) => renderRow(tarefa, true))}
+                </TableBody>
+              </Table>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir tarefa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta tarefa? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteConfirm && deleteTarefa(deleteConfirm)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Popups */}
       {specOpen && (
@@ -558,6 +697,7 @@ export default function TarefasTab({ projetoId }: Props) {
         <TimerPopup
           tarefaId={timerOpen}
           projetoId={projetoId}
+          profiles={profiles}
           open={!!timerOpen}
           onClose={() => { setTimerOpen(null); fetchAll(); }}
         />
