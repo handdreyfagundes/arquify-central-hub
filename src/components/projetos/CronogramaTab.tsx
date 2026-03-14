@@ -191,6 +191,7 @@ export default function CronogramaTab({ projetoId }: Props) {
         data_inicio: formDataInicio ? format(formDataInicio, "yyyy-MM-dd") : null,
         status: formStatus,
         progresso: formProgresso,
+        duracao_dias: parseInt(formDuracaoDias) || 0,
       };
       if (editingEtapa) {
         await updateEtapa(editingEtapa.id, payload);
