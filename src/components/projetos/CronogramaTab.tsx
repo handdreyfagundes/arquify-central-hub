@@ -443,7 +443,14 @@ export default function CronogramaTab({ projetoId }: Props) {
         const lastDate = calculated[calculated.length - 1]?.data_entrega;
         if (lastDate) {
           await updateEtapa(etapa.id, { data_fim: lastDate });
-          previousEndDate = lastDate;
+          // The last substage's intervalo_dias defines the gap to the NEXT main stage
+          const lastSub = [...subs].sort((a, b) => a.ordem - b.ordem).at(-1);
+          const lastInterval = lastSub?.intervalo_dias ?? 0;
+          if (lastInterval > 0) {
+            previousEndDate = toDateString(addDays(parseLocalDate(lastDate), lastInterval, countType));
+          } else {
+            previousEndDate = lastDate;
+          }
         }
       }
 
