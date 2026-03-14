@@ -13,6 +13,18 @@ export async function getCurrentUserWorkspaceId(): Promise<string | null> {
   return data?.workspace_id ?? null;
 }
 
+export async function getUserWorkspaceId(userId: string): Promise<string> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("workspace_id")
+    .eq("user_id", userId)
+    .single();
+
+  if (error || !data) throw new Error("Workspace não encontrado");
+  return data.workspace_id;
+}
+
+
 export async function getCurrentUserRoles() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
