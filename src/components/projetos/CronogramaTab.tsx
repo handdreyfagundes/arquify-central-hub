@@ -86,6 +86,7 @@ export default function CronogramaTab({ projetoId }: Props) {
   const [formDataInicio, setFormDataInicio] = useState<Date | undefined>();
   const [formStatus, setFormStatus] = useState<StageStatus>("pendente");
   const [formProgresso, setFormProgresso] = useState(0);
+  const [formDuracaoDias, setFormDuracaoDias] = useState("0");
   const [saving, setSaving] = useState(false);
 
   // Subetapa dialog
