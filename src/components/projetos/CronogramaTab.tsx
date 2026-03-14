@@ -296,8 +296,7 @@ export default function CronogramaTab({ projetoId }: Props) {
         });
       }
       setSubDialogOpen(false);
-      await load();
-      await recalculateDates();
+      await runReactiveRecalculation();
     } catch {
       toast({ title: "Erro ao salvar subetapa", variant: "destructive" });
     } finally {
