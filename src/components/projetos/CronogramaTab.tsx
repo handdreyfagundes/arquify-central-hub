@@ -382,9 +382,13 @@ export default function CronogramaTab({ projetoId }: Props) {
   // === Recalculation with strict forward chaining ===
   const recalculateDates = async () => {
     try {
-      const freshEtapas = await listEtapasByProjeto(projetoId);
+      const [{ data: projetoConfig }, freshEtapas] = await Promise.all([
+        supabase.from("projetos").select("count_type").eq("id", projetoId).single(),
+        listEtapasByProjeto(projetoId),
+      ]);
       if (!freshEtapas?.length) return;
 
+      const effectiveCountType = (projetoConfig?.count_type as "uteis" | "corridos") || countType;
       let nextStageStartDate: string | null = null;
 
       for (let index = 0; index < freshEtapas.length; index++) {
@@ -416,7 +420,7 @@ export default function CronogramaTab({ projetoId }: Props) {
           if (latestEtapaRev?.data_nova_entrega) {
             endDate = latestEtapaRev.data_nova_entrega;
           } else if (etapa.duracao_dias) {
-            endDate = toDateString(addDays(parseLocalDate(startDate), etapa.duracao_dias, countType));
+            endDate = toDateString(addDays(parseLocalDate(startDate), etapa.duracao_dias, effectiveCountType));
           }
 
           if (etapa.data_fim !== endDate) {
@@ -440,7 +444,7 @@ export default function CronogramaTab({ projetoId }: Props) {
           })
         );
 
-        const calculated = recalcSubetapas(subCalcs, parseLocalDate(startDate), countType);
+        const calculated = recalcSubetapas(subCalcs, parseLocalDate(startDate), effectiveCountType);
         await bulkUpdateSubetapaDates(calculated);
 
         const lastCalculated = calculated[calculated.length - 1];
@@ -454,10 +458,10 @@ export default function CronogramaTab({ projetoId }: Props) {
         }
 
         // Mandatory rule: next main stage starts at (last substage date + last substage prazo até a próxima).
-        const lastSub = [...subs].sort((a, b) => a.ordem - b.ordem).at(-1);
-        const lastIntervalToNext = lastSub?.intervalo_dias ?? 0;
+        const lastCalculatedSub = subCalcs.find((s) => s.id === lastCalculated.id);
+        const lastIntervalToNext = lastCalculatedSub?.intervalo_dias ?? 0;
         nextStageStartDate = toDateString(
-          addDays(parseLocalDate(lastCalculated.data_entrega), lastIntervalToNext, countType)
+          addDays(parseLocalDate(lastCalculated.data_entrega), lastIntervalToNext, effectiveCountType)
         );
       }
 
