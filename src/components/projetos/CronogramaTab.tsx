@@ -143,8 +143,9 @@ export default function CronogramaTab({ projetoId }: Props) {
   }, [projetoId]);
 
   useEffect(() => {
+    hasInitialRecalculatedRef.current = false;
     load();
-  }, [load]);
+  }, [load, projetoId]);
 
   // === Derive stage status from substages ===
   const deriveStageStatus = (subs: Subetapa[]): { status: StageStatus; progresso: number } => {
