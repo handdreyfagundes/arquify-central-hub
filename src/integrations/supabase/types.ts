@@ -842,6 +842,35 @@ export type Database = {
           },
         ]
       }
+      tarefa_responsaveis: {
+        Row: {
+          created_at: string
+          id: string
+          tarefa_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          tarefa_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          tarefa_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tarefa_responsaveis_tarefa_id_fkey"
+            columns: ["tarefa_id"]
+            isOneToOne: false
+            referencedRelation: "tarefas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tarefas: {
         Row: {
           ambiente: string | null
