@@ -33,39 +33,19 @@ const Onboarding = () => {
     setLoading(true);
 
     try {
-      // 1. Create workspace
-      const { data: workspace, error: wsError } = await supabase
-        .from("workspaces")
-        .insert({ name: workspaceName, cidade: city, estado: state })
-        .select()
-        .single();
+      const { data: newWorkspaceId, error: bootstrapError } = await supabase.rpc(
+        "bootstrap_workspace",
+        {
+          _workspace_name: workspaceName.trim(),
+          _cidade: city.trim() || null,
+          _estado: state.trim() || null,
+        }
+      );
 
-      if (wsError) throw wsError;
+      if (bootstrapError) throw bootstrapError;
+      if (!newWorkspaceId) throw new Error("Não foi possível criar o escritório.");
 
-      // 2. Create profile linked to workspace
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .insert({
-          user_id: user.id,
-          workspace_id: workspace.id,
-          name: user.user_metadata?.name || user.email || "Usuário",
-          email: user.email!,
-        });
-
-      if (profileError) throw profileError;
-
-      // 3. Assign admin role
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .insert({
-          user_id: user.id,
-          workspace_id: workspace.id,
-          role: "admin",
-        });
-
-      if (roleError) throw roleError;
-
-      setWorkspaceId(workspace.id);
+      setWorkspaceId(newWorkspaceId);
       setStep("project");
       toast({ title: "Escritório criado com sucesso!" });
     } catch (error: any) {
