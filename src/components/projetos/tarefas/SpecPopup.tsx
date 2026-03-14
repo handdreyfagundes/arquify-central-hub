@@ -126,5 +126,3 @@ export default function SpecPopup({ tarefa, open, onClose, onSave }: Props) {
   );
 }
 
-// Need Badge import
-import { Badge } from "@/components/ui/badge";

@@ -233,8 +233,13 @@ const ProjetoDetalhe = () => {
           <CronogramaTab projetoId={projeto.id} />
         </TabsContent>
 
+        {/* TAREFAS */}
+        <TabsContent value="tarefas">
+          <TarefasTab projetoId={projeto.id} />
+        </TabsContent>
+
         {/* Placeholder tabs */}
-        {PROJECT_TABS.filter((t) => t.value !== "visao-geral" && t.value !== "cronograma").map((tab) => (
+        {PROJECT_TABS.filter((t) => !["visao-geral", "cronograma", "tarefas"].includes(t.value)).map((tab) => (
           <TabsContent key={tab.value} value={tab.value}>
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-16 text-center">
