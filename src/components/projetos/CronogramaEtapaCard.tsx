@@ -213,6 +213,11 @@ export default function CronogramaEtapaCard({
 
             {/* Actions */}
             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+              {subetapas.length === 0 && onAddEtapaRevisao && (
+                <Button variant="ghost" size="icon" className="size-8" onClick={() => setRevDialogOpen(true)} title="Adicionar revisão">
+                  <RotateCcw className="size-3.5" />
+                </Button>
+              )}
               <Button variant="ghost" size="icon" className="size-8" onClick={() => onEditEtapa(etapa)}>
                 <Pencil className="size-3.5" />
               </Button>
@@ -224,6 +229,29 @@ export default function CronogramaEtapaCard({
         </CardHeader>
 
         <CardContent className="pt-0">
+          {/* Stage-level revision history (for stages without substages) */}
+          {subetapas.length === 0 && etapaRevisoes.length > 0 && (
+            <div className="ml-14 mb-2 space-y-1 border-l-2 border-dashed border-muted pl-3">
+              {etapaRevisoes.map((rev) => (
+                <div key={rev.id} className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+                  <Badge variant="outline" className="text-[9px] shrink-0">
+                    Rev {String(rev.numero_revisao).padStart(2, "0")}
+                  </Badge>
+                  <span>Solicitada {format(new Date(rev.data_solicitacao + "T00:00:00"), "dd/MM")}</span>
+                  <span>→ +{rev.prazo_dias}d</span>
+                  {rev.data_nova_entrega && (
+                    <span className="font-medium text-foreground">
+                      Nova entrega: {format(new Date(rev.data_nova_entrega + "T00:00:00"), "dd/MM/yyyy")}
+                    </span>
+                  )}
+                  {rev.observacoes && (
+                    <span className="truncate italic">"{rev.observacoes}"</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Substages */}
           {subetapas.length > 0 && (
             <div className="ml-14 border-l border-border pl-2 space-y-0">
@@ -269,6 +297,67 @@ export default function CronogramaEtapaCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Stage revision dialog (for stages without substages) */}
+      <Dialog open={revDialogOpen} onOpenChange={setRevDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adicionar revisão — {etapa.nome}</DialogTitle>
+            <DialogDescription>
+              Registre uma revisão para esta etapa. As datas serão recalculadas automaticamente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Data da solicitação</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn("w-full justify-start text-left font-normal", !revDate && "text-muted-foreground")}
+                  >
+                    <CalendarIcon className="mr-2 size-4" />
+                    {revDate ? format(revDate, "dd/MM/yyyy") : "Selecionar data"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={revDate}
+                    onSelect={setRevDate}
+                    locale={ptBR}
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-2">
+              <Label>Prazo da revisão (dias)</Label>
+              <Input
+                type="number"
+                min="1"
+                value={revPrazo}
+                onChange={(e) => setRevPrazo(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Observações (opcional)</Label>
+              <Textarea
+                value={revObs}
+                onChange={(e) => setRevObs(e.target.value)}
+                placeholder="Detalhes da revisão…"
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRevDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaveEtapaRevisao} disabled={saving || !revDate}>
+              {saving ? "Salvando…" : "Salvar revisão"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
