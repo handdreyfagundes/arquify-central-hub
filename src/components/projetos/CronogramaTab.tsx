@@ -44,6 +44,7 @@ import {
   deleteSubetapa,
   bulkUpdateSubetapaDates,
   listRevisoesBySubetapa,
+  listRevisoesByEtapa,
   createRevisao,
 } from "@/services/subetapas";
 import type { Subetapa, Revisao } from "@/services/subetapas";
