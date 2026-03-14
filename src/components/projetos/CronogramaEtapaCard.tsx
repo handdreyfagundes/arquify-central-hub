@@ -252,6 +252,30 @@ export default function CronogramaEtapaCard({
                   {rev.observacoes && (
                     <span className="truncate italic">"{rev.observacoes}"</span>
                   )}
+                  <div className="flex gap-0.5 ml-auto shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-5"
+                      onClick={() => {
+                        setEditingRev(rev);
+                        setEditRevDate(new Date(rev.data_solicitacao + "T00:00:00"));
+                        setEditRevPrazo(String(rev.prazo_dias));
+                        setEditRevObs(rev.observacoes || "");
+                        setEditRevDialogOpen(true);
+                      }}
+                    >
+                      <Pencil className="size-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-5 text-destructive"
+                      onClick={() => setDeleteRevTarget(rev)}
+                    >
+                      <Trash2 className="size-3" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
