@@ -222,8 +222,13 @@ const ProjetoDetalhe = () => {
           </div>
         </TabsContent>
 
+        {/* ANDAMENTO GERAL (Cronograma) */}
+        <TabsContent value="cronograma">
+          <AndamentoGeral projetoId={projeto.id} />
+        </TabsContent>
+
         {/* Placeholder tabs */}
-        {PROJECT_TABS.filter((t) => t.value !== "visao-geral").map((tab) => (
+        {PROJECT_TABS.filter((t) => t.value !== "visao-geral" && t.value !== "cronograma").map((tab) => (
           <TabsContent key={tab.value} value={tab.value}>
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-16 text-center">
