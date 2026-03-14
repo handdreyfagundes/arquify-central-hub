@@ -326,7 +326,10 @@ export default function CronogramaEtapaCard({
                   onEdit={onEditSubetapa}
                   onDelete={onDeleteSubetapa}
                   onAddRevisao={onAddRevisao}
+                  onEditRevisao={onEditRevisao}
+                  onDeleteRevisao={onDeleteRevisao}
                   onToggleStatus={onToggleSubStatus}
+                  countType={countType}
                 />
               ))}
             </div>
