@@ -210,7 +210,7 @@ export default function CronogramaTab({ projetoId }: Props) {
     try {
       await deleteEtapa(deleteEtapaTarget.id);
       setDeleteEtapaTarget(null);
-      await load();
+      await runReactiveRecalculation();
     } catch {
       toast({ title: "Erro ao excluir etapa", variant: "destructive" });
     }
