@@ -67,6 +67,11 @@ export default function CronogramaTab({ projetoId }: Props) {
   const [countType, setCountType] = useState<"uteis" | "corridos">("uteis");
   const [loading, setLoading] = useState(true);
 
+  // Location settings
+  const [pais, setPais] = useState("Brasil");
+  const [estadoCalendario, setEstadoCalendario] = useState("");
+  const [cidadeCalendario, setCidadeCalendario] = useState("");
+
   // Etapa dialog
   const [etapaDialogOpen, setEtapaDialogOpen] = useState(false);
   const [editingEtapa, setEditingEtapa] = useState<Etapa | null>(null);
@@ -92,19 +97,21 @@ export default function CronogramaTab({ projetoId }: Props) {
 
   const load = useCallback(async () => {
     try {
-      // Load etapas
       const etapasData = await listEtapasByProjeto(projetoId);
       setEtapas(etapasData ?? []);
 
-      // Load count_type from project
       const { data: proj } = await supabase
         .from("projetos")
-        .select("count_type")
+        .select("count_type, pais, estado_calendario, cidade_calendario")
         .eq("id", projetoId)
         .single();
-      if (proj?.count_type) setCountType(proj.count_type as "uteis" | "corridos");
+      if (proj) {
+        if (proj.count_type) setCountType(proj.count_type as "uteis" | "corridos");
+        setPais((proj as any).pais || "Brasil");
+        setEstadoCalendario((proj as any).estado_calendario || "");
+        setCidadeCalendario((proj as any).cidade_calendario || "");
+      }
 
-      // Load subetapas for all etapas
       const subMap: Record<string, Subetapa[]> = {};
       const revMap: Record<string, Revisao[]> = {};
 
@@ -128,6 +135,15 @@ export default function CronogramaTab({ projetoId }: Props) {
   useEffect(() => {
     load();
   }, [load]);
+
+  // === Derive stage status from substages ===
+  const deriveStageStatus = (subs: Subetapa[]): { status: StageStatus; progresso: number } => {
+    if (subs.length === 0) return { status: "pendente", progresso: 0 };
+    const completed = subs.filter((s) => s.status === "concluida").length;
+    if (completed === subs.length) return { status: "concluida", progresso: 100 };
+    if (completed > 0) return { status: "em_andamento", progresso: Math.round((completed / subs.length) * 100) };
+    return { status: "pendente", progresso: 0 };
+  };
 
   // === Etapa handlers ===
   const openNewEtapa = () => {
@@ -169,6 +185,7 @@ export default function CronogramaTab({ projetoId }: Props) {
       }
       setEtapaDialogOpen(false);
       await load();
+      await recalculateDates();
     } catch {
       toast({ title: "Erro ao salvar etapa", variant: "destructive" });
     } finally {
@@ -195,9 +212,39 @@ export default function CronogramaTab({ projetoId }: Props) {
     setEtapas(reordered);
     try {
       await reorderEtapas(reordered.map((e, i) => ({ id: e.id, ordem: i })));
+      await recalculateDates();
     } catch {
       toast({ title: "Erro ao reordenar", variant: "destructive" });
       await load();
+    }
+  };
+
+  // === Toggle stage status (for stages without substages) ===
+  const handleToggleEtapaStatus = async (etapa: Etapa) => {
+    const newStatus: StageStatus = etapa.status === "concluida" ? "pendente" : "concluida";
+    const newProg = newStatus === "concluida" ? 100 : 0;
+    try {
+      await updateEtapa(etapa.id, { status: newStatus, progresso: newProg });
+      await load();
+    } catch {
+      toast({ title: "Erro ao atualizar status", variant: "destructive" });
+    }
+  };
+
+  // === Toggle substage status ===
+  const handleToggleSubStatus = async (sub: Subetapa) => {
+    const newStatus = sub.status === "concluida" ? "pendente" : "concluida";
+    try {
+      await updateSubetapa(sub.id, { status: newStatus });
+      // Re-derive parent stage status
+      const subs = await listSubetapasByEtapa(sub.etapa_id);
+      // Apply the toggle to the local copy for calculation
+      const updatedSubs = subs.map((s) => s.id === sub.id ? { ...s, status: newStatus } : s);
+      const { status, progresso } = deriveStageStatus(updatedSubs);
+      await updateEtapa(sub.etapa_id, { status, progresso });
+      await load();
+    } catch {
+      toast({ title: "Erro ao atualizar status", variant: "destructive" });
     }
   };
 
@@ -238,7 +285,6 @@ export default function CronogramaTab({ projetoId }: Props) {
       }
       setSubDialogOpen(false);
       await load();
-      // Trigger recalculation
       await recalculateDates();
     } catch {
       toast({ title: "Erro ao salvar subetapa", variant: "destructive" });
@@ -280,11 +326,9 @@ export default function CronogramaTab({ projetoId }: Props) {
         observacoes: rev.observacoes || null,
       });
 
-      // Update the subetapa delivery date
       await updateSubetapa(subId, { data_entrega: newDelivery });
 
       await load();
-      // Recalculate all subsequent dates
       await recalculateDates();
       toast({ title: "Revisão adicionada. Datas recalculadas." });
     } catch {
@@ -292,19 +336,40 @@ export default function CronogramaTab({ projetoId }: Props) {
     }
   };
 
-  // === Recalculation ===
+  // === Recalculation with stage chaining ===
   const recalculateDates = async () => {
     try {
-      // Re-fetch fresh data
       const freshEtapas = await listEtapasByProjeto(projetoId);
       if (!freshEtapas?.length) return;
 
-      for (const etapa of freshEtapas) {
-        if (!etapa.data_inicio) continue;
-        const subs = await listSubetapasByEtapa(etapa.id);
-        if (!subs.length) continue;
+      let previousEndDate: string | null = null;
 
-        // Get latest revision dates for each sub
+      for (const etapa of freshEtapas) {
+        // If no explicit start date, chain from previous stage end
+        let startDate = etapa.data_inicio;
+        if (!startDate && previousEndDate) {
+          startDate = previousEndDate;
+          await updateEtapa(etapa.id, { data_inicio: startDate });
+        }
+
+        if (!startDate) {
+          previousEndDate = null;
+          continue;
+        }
+
+        const subs = await listSubetapasByEtapa(etapa.id);
+        if (!subs.length) {
+          // Stage without substages: end = start + duracao_dias
+          if (etapa.duracao_dias) {
+            const endDate = toDateString(addDays(parseLocalDate(startDate), etapa.duracao_dias, countType));
+            await updateEtapa(etapa.id, { data_fim: endDate });
+            previousEndDate = endDate;
+          } else {
+            previousEndDate = startDate;
+          }
+          continue;
+        }
+
         const subCalcs = await Promise.all(
           subs.map(async (s) => {
             const revs = await listRevisoesBySubetapa(s.id);
@@ -320,16 +385,16 @@ export default function CronogramaTab({ projetoId }: Props) {
 
         const calculated = recalcSubetapas(
           subCalcs,
-          parseLocalDate(etapa.data_inicio),
+          parseLocalDate(startDate),
           countType
         );
 
         await bulkUpdateSubetapaDates(calculated);
 
-        // Update etapa end date from last substage
         const lastDate = calculated[calculated.length - 1]?.data_entrega;
         if (lastDate) {
           await updateEtapa(etapa.id, { data_fim: lastDate });
+          previousEndDate = lastDate;
         }
       }
 
@@ -344,7 +409,12 @@ export default function CronogramaTab({ projetoId }: Props) {
     try {
       await supabase
         .from("projetos")
-        .update({ count_type: countType })
+        .update({
+          count_type: countType,
+          pais,
+          estado_calendario: estadoCalendario || null,
+          cidade_calendario: cidadeCalendario || null,
+        } as any)
         .eq("id", projetoId);
       setSettingsOpen(false);
       toast({ title: "Configuração salva" });
@@ -412,6 +482,8 @@ export default function CronogramaTab({ projetoId }: Props) {
               onEditSubetapa={openEditSubetapa}
               onDeleteSubetapa={setDeleteSubTarget}
               onAddRevisao={handleAddRevisao}
+              onToggleEtapaStatus={handleToggleEtapaStatus}
+              onToggleSubStatus={handleToggleSubStatus}
             />
           ))}
         </div>
@@ -444,6 +516,9 @@ export default function CronogramaTab({ projetoId }: Props) {
                   <Calendar mode="single" selected={formDataInicio} onSelect={setFormDataInicio} locale={ptBR} className={cn("p-3 pointer-events-auto")} />
                 </PopoverContent>
               </Popover>
+              <p className="text-xs text-muted-foreground">
+                Se não definida, será encadeada a partir da etapa anterior.
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Status</Label>
@@ -539,7 +614,7 @@ export default function CronogramaTab({ projetoId }: Props) {
           <DialogHeader>
             <DialogTitle>Configurações do cronograma</DialogTitle>
             <DialogDescription>
-              Defina como os prazos são calculados neste projeto.
+              Defina como os prazos são calculados e a localização do projeto.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -556,6 +631,27 @@ export default function CronogramaTab({ projetoId }: Props) {
                 {countType === "uteis"
                   ? "Fins de semana serão ignorados nos cálculos de prazo."
                   : "Todos os dias serão contados, incluindo fins de semana."}
+              </p>
+            </div>
+
+            <div className="border-t border-border pt-4 space-y-3">
+              <Label className="text-sm font-medium">Localização (calendário de feriados)</Label>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">País</Label>
+                <Input value={pais} onChange={(e) => setPais(e.target.value)} placeholder="Brasil" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Estado</Label>
+                  <Input value={estadoCalendario} onChange={(e) => setEstadoCalendario(e.target.value)} placeholder="Ex: SP" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Cidade</Label>
+                  <Input value={cidadeCalendario} onChange={(e) => setCidadeCalendario(e.target.value)} placeholder="Ex: São Paulo" />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                A localização será usada para aplicar o calendário de feriados correto ao cálculo de dias úteis.
               </p>
             </div>
           </div>

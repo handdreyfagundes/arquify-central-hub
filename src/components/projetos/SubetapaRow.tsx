@@ -13,6 +13,16 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -23,7 +33,6 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   CalendarIcon,
-  Plus,
   Pencil,
   Trash2,
   RotateCcw,
@@ -32,6 +41,7 @@ import {
   Circle,
   CheckCircle2,
   Clock,
+  Check,
 } from "lucide-react";
 import type { Subetapa, Revisao } from "@/services/subetapas";
 
@@ -45,24 +55,20 @@ interface Props {
     prazo_dias: number;
     observacoes: string;
   }) => void;
+  onToggleStatus: (sub: Subetapa) => void;
 }
 
-const STATUS_ICON: Record<string, { icon: typeof Circle; color: string }> = {
-  pendente: { icon: Circle, color: "text-muted-foreground" },
-  em_andamento: { icon: Clock, color: "text-primary" },
-  concluida: { icon: CheckCircle2, color: "text-emerald-500" },
-};
-
-export default function SubetapaRow({ sub, revisoes, onEdit, onDelete, onAddRevisao }: Props) {
+export default function SubetapaRow({ sub, revisoes, onEdit, onDelete, onAddRevisao, onToggleStatus }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [revDialogOpen, setRevDialogOpen] = useState(false);
   const [revDate, setRevDate] = useState<Date | undefined>(new Date());
   const [revPrazo, setRevPrazo] = useState("5");
   const [revObs, setRevObs] = useState("");
   const [saving, setSaving] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const statusCfg = STATUS_ICON[sub.status] || STATUS_ICON.pendente;
-  const Icon = statusCfg.icon;
+  const isCompleted = sub.status === "concluida";
+  const isInProgress = sub.status === "em_andamento";
   const hasRevisoes = revisoes.length > 0;
 
   const handleSaveRevisao = async () => {
@@ -79,17 +85,42 @@ export default function SubetapaRow({ sub, revisoes, onEdit, onDelete, onAddRevi
     setRevPrazo("5");
   };
 
+  const handleCircleClick = () => {
+    setConfirmOpen(true);
+  };
+
+  const confirmToggle = () => {
+    onToggleStatus(sub);
+    setConfirmOpen(false);
+  };
+
   return (
     <div className="group/sub">
       {/* Main row */}
       <div className="flex items-center gap-3 py-2 px-3 rounded-md hover:bg-accent/50 transition-colors">
-        <Icon className={cn("size-4 shrink-0", statusCfg.color)} />
+        {/* Clickable status circle */}
+        <button
+          onClick={handleCircleClick}
+          className="shrink-0 cursor-pointer hover:scale-110 transition-transform"
+          title={isCompleted ? "Reabrir subetapa" : "Marcar como concluída"}
+        >
+          {isCompleted ? (
+            <CheckCircle2 className="size-4 text-emerald-500" />
+          ) : isInProgress ? (
+            <Clock className="size-4 text-primary" />
+          ) : (
+            <Circle className="size-4 text-muted-foreground" />
+          )}
+        </button>
 
         <button
           onClick={() => hasRevisoes && setExpanded(!expanded)}
           className="flex items-center gap-1 min-w-0 flex-1"
         >
-          <span className="text-sm font-medium text-foreground truncate">{sub.nome}</span>
+          <span className={cn(
+            "text-sm font-medium truncate",
+            isCompleted ? "text-muted-foreground line-through" : "text-foreground",
+          )}>{sub.nome}</span>
           {hasRevisoes && (
             expanded
               ? <ChevronDown className="size-3.5 text-muted-foreground shrink-0" />
@@ -207,6 +238,26 @@ export default function SubetapaRow({ sub, revisoes, onEdit, onDelete, onAddRevi
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Completion confirmation */}
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {isCompleted ? "Reabrir subetapa?" : "Marcar subetapa como concluída?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isCompleted
+                ? `"${sub.nome}" será reaberta e marcada como pendente.`
+                : `"${sub.nome}" será marcada como concluída.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmToggle}>Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
