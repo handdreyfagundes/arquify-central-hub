@@ -224,7 +224,7 @@ export default function CronogramaTab({ projetoId }: Props) {
     setEtapas(reordered);
     try {
       await reorderEtapas(reordered.map((e, i) => ({ id: e.id, ordem: i })));
-      await recalculateDates();
+      await runReactiveRecalculation();
     } catch {
       toast({ title: "Erro ao reordenar", variant: "destructive" });
       await load();
