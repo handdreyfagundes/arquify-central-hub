@@ -141,6 +141,32 @@ export default function CronogramaEtapaCard({
     setRevObs("");
     setRevPrazo("5");
   };
+
+  const handleSaveEditRevisao = async () => {
+    if (!editingRev || !editRevDate) return;
+    setSaving(true);
+    const dataSolicitacao = format(editRevDate, "yyyy-MM-dd");
+    const prazoDias = parseInt(editRevPrazo) || 5;
+    // Recalculate new delivery from the updated request date + prazo
+    const { addDays, parseLocalDate, toDateString } = await import("@/lib/cronograma-utils");
+    const newDelivery = toDateString(addDays(parseLocalDate(dataSolicitacao), prazoDias, countType));
+    await onEditRevisao(editingRev.id, {
+      data_solicitacao: dataSolicitacao,
+      prazo_dias: prazoDias,
+      data_nova_entrega: newDelivery,
+      observacoes: editRevObs || null,
+    });
+    setSaving(false);
+    setEditRevDialogOpen(false);
+    setEditingRev(null);
+  };
+
+  const handleDeleteRev = async () => {
+    if (!deleteRevTarget) return;
+    await onDeleteRevisao(deleteRevTarget.id);
+    setDeleteRevTarget(null);
+  };
+
   const isCompleted = etapa.status === "concluida";
 
   return (
