@@ -265,6 +265,7 @@ export type Database = {
           id: string
           nome: string
           ordem: number
+          progresso: number
           projeto_id: string
           status: Database["public"]["Enums"]["stage_status"]
         }
@@ -275,6 +276,7 @@ export type Database = {
           id?: string
           nome: string
           ordem?: number
+          progresso?: number
           projeto_id: string
           status?: Database["public"]["Enums"]["stage_status"]
         }
@@ -285,6 +287,7 @@ export type Database = {
           id?: string
           nome?: string
           ordem?: number
+          progresso?: number
           projeto_id?: string
           status?: Database["public"]["Enums"]["stage_status"]
         }
