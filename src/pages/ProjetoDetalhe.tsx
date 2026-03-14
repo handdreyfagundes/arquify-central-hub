@@ -229,7 +229,7 @@ const ProjetoDetalhe = () => {
 
         {/* CRONOGRAMA (full timeline) */}
         <TabsContent value="cronograma">
-          <AndamentoGeral projetoId={projeto.id} />
+          <CronogramaTab projetoId={projeto.id} />
         </TabsContent>
 
         {/* Placeholder tabs */}
