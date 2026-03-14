@@ -63,7 +63,6 @@ interface Props {
   total: number;
   subetapas: Subetapa[];
   revisoes: Record<string, Revisao[]>;
-  /** Revisions keyed by etapa id (for stages without substages) */
   etapaRevisoes?: Revisao[];
   onEditEtapa: (etapa: Etapa) => void;
   onDeleteEtapa: (etapa: Etapa) => void;
@@ -72,9 +71,12 @@ interface Props {
   onEditSubetapa: (sub: Subetapa) => void;
   onDeleteSubetapa: (sub: Subetapa) => void;
   onAddRevisao: (subId: string, rev: { data_solicitacao: string; prazo_dias: number; observacoes: string }) => void;
+  onEditRevisao: (revId: string, updates: { data_solicitacao: string; prazo_dias: number; data_nova_entrega: string; observacoes: string | null }) => void;
+  onDeleteRevisao: (revId: string) => void;
   onAddEtapaRevisao?: (etapaId: string, rev: { data_solicitacao: string; prazo_dias: number; observacoes: string }) => void;
   onToggleEtapaStatus: (etapa: Etapa) => void;
   onToggleSubStatus: (sub: Subetapa) => void;
+  countType: "uteis" | "corridos";
 }
 
 export default function CronogramaEtapaCard({
