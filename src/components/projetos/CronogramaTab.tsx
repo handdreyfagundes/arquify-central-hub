@@ -116,6 +116,7 @@ export default function CronogramaTab({ projetoId }: Props) {
 
       const subMap: Record<string, Subetapa[]> = {};
       const revMap: Record<string, Revisao[]> = {};
+      const etapaRevMap: Record<string, Revisao[]> = {};
 
       for (const etapa of etapasData ?? []) {
         const subs = await listSubetapasByEtapa(etapa.id);
@@ -124,9 +125,15 @@ export default function CronogramaTab({ projetoId }: Props) {
           const revs = await listRevisoesBySubetapa(sub.id);
           revMap[sub.id] = revs;
         }
+        // Load stage-level revisions (for stages without substages)
+        if (subs.length === 0) {
+          const etapaRevs = await listRevisoesByEtapa(etapa.id);
+          etapaRevMap[etapa.id] = etapaRevs;
+        }
       }
       setSubetapasMap(subMap);
       setRevisoesMap(revMap);
+      setEtapaRevisoesMap(etapaRevMap);
     } catch {
       toast({ title: "Erro ao carregar cronograma", variant: "destructive" });
     } finally {
