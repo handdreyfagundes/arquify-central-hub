@@ -378,7 +378,7 @@ export default function CronogramaTab({ projetoId }: Props) {
   };
 
   // === Recalculation with strict forward chaining ===
-  const recalculateDates = async () => {
+  const recalculateDates = useCallback(async () => {
     try {
       const [{ data: projetoConfig }, freshEtapas] = await Promise.all([
         supabase.from("projetos").select("count_type").eq("id", projetoId).single(),
@@ -467,13 +467,30 @@ export default function CronogramaTab({ projetoId }: Props) {
     } catch {
       toast({ title: "Erro ao recalcular datas", variant: "destructive" });
     }
-  };
+  }, [countType, load, projetoId, toast]);
+
+  const runReactiveRecalculation = useCallback(async () => {
+    if (recalcInProgressRef.current) {
+      recalcQueuedRef.current = true;
+      return;
+    }
+
+    recalcInProgressRef.current = true;
+    try {
+      do {
+        recalcQueuedRef.current = false;
+        await recalculateDates();
+      } while (recalcQueuedRef.current);
+    } finally {
+      recalcInProgressRef.current = false;
+    }
+  }, [recalculateDates]);
 
   useEffect(() => {
     if (loading || hasInitialRecalculatedRef.current) return;
     hasInitialRecalculatedRef.current = true;
-    void recalculateDates();
-  }, [loading, projetoId]);
+    void runReactiveRecalculation();
+  }, [loading, projetoId, runReactiveRecalculation]);
 
   // === Settings handler ===
   const handleSaveSettings = async () => {
