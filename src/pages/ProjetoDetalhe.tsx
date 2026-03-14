@@ -28,7 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const PROJECT_TABS = [
   { value: "visao-geral", label: "Visão geral", icon: LayoutDashboard },
-  { value: "cronograma", label: "Andamento geral", icon: CalendarRange },
+  { value: "cronograma", label: "Cronograma", icon: CalendarRange },
   { value: "tarefas", label: "Tarefas", icon: CheckSquare },
   { value: "arquivos", label: "Arquivos", icon: FileText },
   { value: "orcamentos", label: "Orçamentos", icon: Receipt },
