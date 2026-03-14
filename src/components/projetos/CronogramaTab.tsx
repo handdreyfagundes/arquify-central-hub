@@ -338,8 +338,7 @@ export default function CronogramaTab({ projetoId }: Props) {
 
       await updateSubetapa(subId, { data_entrega: newDelivery });
 
-      await load();
-      await recalculateDates();
+      await runReactiveRecalculation();
       toast({ title: "Revisão adicionada. Datas recalculadas." });
     } catch {
       toast({ title: "Erro ao adicionar revisão", variant: "destructive" });
