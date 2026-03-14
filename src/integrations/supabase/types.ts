@@ -620,6 +620,7 @@ export type Database = {
           endereco_obra: string | null
           id: string
           imagem_capa: string | null
+          metragem: number | null
           nome: string
           prazo_macro: string | null
           project_type: Database["public"]["Enums"]["project_type"]
@@ -636,6 +637,7 @@ export type Database = {
           endereco_obra?: string | null
           id?: string
           imagem_capa?: string | null
+          metragem?: number | null
           nome: string
           prazo_macro?: string | null
           project_type?: Database["public"]["Enums"]["project_type"]
@@ -652,6 +654,7 @@ export type Database = {
           endereco_obra?: string | null
           id?: string
           imagem_capa?: string | null
+          metragem?: number | null
           nome?: string
           prazo_macro?: string | null
           project_type?: Database["public"]["Enums"]["project_type"]
