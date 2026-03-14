@@ -619,16 +619,19 @@ export type Database = {
       }
       projetos: {
         Row: {
+          cidade_calendario: string | null
           cliente_id: string | null
           cor: string | null
           count_type: string
           created_at: string
           descricao: string | null
           endereco_obra: string | null
+          estado_calendario: string | null
           id: string
           imagem_capa: string | null
           metragem: number | null
           nome: string
+          pais: string | null
           prazo_macro: string | null
           project_type: Database["public"]["Enums"]["project_type"]
           status: Database["public"]["Enums"]["project_status"]
@@ -637,16 +640,19 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          cidade_calendario?: string | null
           cliente_id?: string | null
           cor?: string | null
           count_type?: string
           created_at?: string
           descricao?: string | null
           endereco_obra?: string | null
+          estado_calendario?: string | null
           id?: string
           imagem_capa?: string | null
           metragem?: number | null
           nome: string
+          pais?: string | null
           prazo_macro?: string | null
           project_type?: Database["public"]["Enums"]["project_type"]
           status?: Database["public"]["Enums"]["project_status"]
@@ -655,16 +661,19 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          cidade_calendario?: string | null
           cliente_id?: string | null
           cor?: string | null
           count_type?: string
           created_at?: string
           descricao?: string | null
           endereco_obra?: string | null
+          estado_calendario?: string | null
           id?: string
           imagem_capa?: string | null
           metragem?: number | null
           nome?: string
+          pais?: string | null
           prazo_macro?: string | null
           project_type?: Database["public"]["Enums"]["project_type"]
           status?: Database["public"]["Enums"]["project_status"]
