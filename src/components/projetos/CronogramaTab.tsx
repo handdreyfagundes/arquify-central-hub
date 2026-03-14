@@ -309,8 +309,7 @@ export default function CronogramaTab({ projetoId }: Props) {
     try {
       await deleteSubetapa(deleteSubTarget.id);
       setDeleteSubTarget(null);
-      await load();
-      await recalculateDates();
+      await runReactiveRecalculation();
     } catch {
       toast({ title: "Erro ao excluir subetapa", variant: "destructive" });
     }
