@@ -65,6 +65,7 @@ export default function CronogramaTab({ projetoId }: Props) {
   const [etapas, setEtapas] = useState<Etapa[]>([]);
   const [subetapasMap, setSubetapasMap] = useState<Record<string, Subetapa[]>>({});
   const [revisoesMap, setRevisoesMap] = useState<Record<string, Revisao[]>>({});
+  const [etapaRevisoesMap, setEtapaRevisoesMap] = useState<Record<string, Revisao[]>>({});
   const [countType, setCountType] = useState<"uteis" | "corridos">("uteis");
   const [loading, setLoading] = useState(true);
 
