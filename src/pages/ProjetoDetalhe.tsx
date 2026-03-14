@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import AndamentoGeral from "@/components/projetos/AndamentoGeral";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const PROJECT_TABS = [
   { value: "visao-geral", label: "Visão geral", icon: LayoutDashboard },
-  { value: "cronograma", label: "Cronograma", icon: CalendarRange },
+  { value: "cronograma", label: "Andamento geral", icon: CalendarRange },
   { value: "tarefas", label: "Tarefas", icon: CheckSquare },
   { value: "arquivos", label: "Arquivos", icon: FileText },
   { value: "orcamentos", label: "Orçamentos", icon: Receipt },
@@ -221,8 +222,13 @@ const ProjetoDetalhe = () => {
           </div>
         </TabsContent>
 
+        {/* ANDAMENTO GERAL (Cronograma) */}
+        <TabsContent value="cronograma">
+          <AndamentoGeral projetoId={projeto.id} />
+        </TabsContent>
+
         {/* Placeholder tabs */}
-        {PROJECT_TABS.filter((t) => t.value !== "visao-geral").map((tab) => (
+        {PROJECT_TABS.filter((t) => t.value !== "visao-geral" && t.value !== "cronograma").map((tab) => (
           <TabsContent key={tab.value} value={tab.value}>
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-16 text-center">

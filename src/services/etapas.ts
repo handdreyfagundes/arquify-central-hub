@@ -42,3 +42,12 @@ export async function deleteEtapa(id: string) {
   const { error } = await supabase.from("etapas").delete().eq("id", id);
   if (error) throw error;
 }
+
+export async function reorderEtapas(items: { id: string; ordem: number }[]) {
+  const promises = items.map(({ id, ordem }) =>
+    supabase.from("etapas").update({ ordem }).eq("id", id)
+  );
+  const results = await Promise.all(promises);
+  const err = results.find((r) => r.error);
+  if (err?.error) throw err.error;
+}

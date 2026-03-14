@@ -1,0 +1,1 @@
+ALTER TABLE public.etapas ADD COLUMN IF NOT EXISTS progresso integer NOT NULL DEFAULT 0;
