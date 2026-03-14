@@ -55,7 +55,10 @@ interface Props {
     prazo_dias: number;
     observacoes: string;
   }) => void;
+  onEditRevisao: (revId: string, updates: { data_solicitacao: string; prazo_dias: number; data_nova_entrega: string; observacoes: string | null }) => void;
+  onDeleteRevisao: (revId: string) => void;
   onToggleStatus: (sub: Subetapa) => void;
+  countType: "uteis" | "corridos";
 }
 
 export default function SubetapaRow({ sub, revisoes, onEdit, onDelete, onAddRevisao, onToggleStatus }: Props) {
