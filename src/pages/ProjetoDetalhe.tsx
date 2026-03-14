@@ -220,10 +220,14 @@ const ProjetoDetalhe = () => {
                 )}
               </CardContent>
             </Card>
+            {/* Andamento geral summary */}
+            <div className="md:col-span-3">
+              <AndamentoResumo projetoId={projeto.id} />
+            </div>
           </div>
         </TabsContent>
 
-        {/* ANDAMENTO GERAL (Cronograma) */}
+        {/* CRONOGRAMA (full timeline) */}
         <TabsContent value="cronograma">
           <AndamentoGeral projetoId={projeto.id} />
         </TabsContent>
