@@ -289,8 +289,8 @@ export default function TarefasTab({ projetoId }: Props) {
       let cmp = 0;
       switch (sortBy) {
         case "etapa": {
-          const na = getEtapaName(a.etapa_id);
-          const nb = getEtapaName(b.etapa_id);
+          const na = getEtapaDisplayName(a);
+          const nb = getEtapaDisplayName(b);
           cmp = na.localeCompare(nb);
           break;
         }
