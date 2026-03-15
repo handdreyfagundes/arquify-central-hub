@@ -1,0 +1,1 @@
+ALTER TABLE public.tarefas ADD COLUMN subetapa_id uuid REFERENCES public.subetapas(id) ON DELETE SET NULL;

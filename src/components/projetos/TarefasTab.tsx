@@ -167,15 +167,20 @@ export default function TarefasTab({ projetoId }: Props) {
     return `${decimal} h`;
   };
 
-  const getEtapaName = (etapaId: string | null) => {
-    if (!etapaId) return "—";
-    const sub = subetapas.find((s) => s.id === etapaId);
-    if (sub) {
-      const parent = etapas.find((e) => e.id === sub.etapa_id);
-      return parent ? `${parent.nome} › ${sub.nome}` : sub.nome;
+  const getEtapaDisplayName = (tarefa: Tarefa) => {
+    const subId = (tarefa as any).subetapa_id as string | null;
+    if (subId) {
+      const sub = subetapas.find((s) => s.id === subId);
+      if (sub) {
+        const parent = etapas.find((e) => e.id === sub.etapa_id);
+        return parent ? `${parent.nome} › ${sub.nome}` : sub.nome;
+      }
     }
-    const etapa = etapas.find((e) => e.id === etapaId);
-    return etapa?.nome ?? "—";
+    if (tarefa.etapa_id) {
+      const etapa = etapas.find((e) => e.id === tarefa.etapa_id);
+      return etapa?.nome ?? "—";
+    }
+    return "—";
   };
 
   const getProfileName = (userId: string | null) => {
@@ -284,8 +289,8 @@ export default function TarefasTab({ projetoId }: Props) {
       let cmp = 0;
       switch (sortBy) {
         case "etapa": {
-          const na = getEtapaName(a.etapa_id);
-          const nb = getEtapaName(b.etapa_id);
+          const na = getEtapaDisplayName(a);
+          const nb = getEtapaDisplayName(b);
           cmp = na.localeCompare(nb);
           break;
         }
@@ -361,11 +366,42 @@ export default function TarefasTab({ projetoId }: Props) {
         {/* STAGE */}
         <TableCell className="py-2">
           <Select
-            value={tarefa.etapa_id ?? "none"}
-            onValueChange={(v) => updateField(tarefa.id, "etapa_id", v === "none" ? null : v)}
+            value={(tarefa as any).subetapa_id ?? tarefa.etapa_id ?? "none"}
+            onValueChange={async (v) => {
+              if (v === "none") {
+                try {
+                  const { error } = await supabase.from("tarefas").update({ etapa_id: null, subetapa_id: null } as any).eq("id", tarefa.id);
+                  if (error) throw error;
+                  setTarefas((prev) => prev.map((t) => t.id === tarefa.id ? { ...t, etapa_id: null, subetapa_id: null } as any : t));
+                } catch (err: any) {
+                  toast({ title: "Erro ao atualizar", description: err.message, variant: "destructive" });
+                }
+                return;
+              }
+              const sub = subetapas.find((s) => s.id === v);
+              if (sub) {
+                // Substage selected: save parent etapa_id + subetapa_id
+                try {
+                  const { error } = await supabase.from("tarefas").update({ etapa_id: sub.etapa_id, subetapa_id: v } as any).eq("id", tarefa.id);
+                  if (error) throw error;
+                  setTarefas((prev) => prev.map((t) => t.id === tarefa.id ? { ...t, etapa_id: sub.etapa_id, subetapa_id: v } as any : t));
+                } catch (err: any) {
+                  toast({ title: "Erro ao atualizar", description: err.message, variant: "destructive" });
+                }
+              } else {
+                // Main stage selected: save etapa_id, clear subetapa_id
+                try {
+                  const { error } = await supabase.from("tarefas").update({ etapa_id: v, subetapa_id: null } as any).eq("id", tarefa.id);
+                  if (error) throw error;
+                  setTarefas((prev) => prev.map((t) => t.id === tarefa.id ? { ...t, etapa_id: v, subetapa_id: null } as any : t));
+                } catch (err: any) {
+                  toast({ title: "Erro ao atualizar", description: err.message, variant: "destructive" });
+                }
+              }
+            }}
           >
             <SelectTrigger className="h-7 text-xs border-none shadow-none bg-transparent hover:bg-muted px-1">
-              <SelectValue>{getEtapaName(tarefa.etapa_id)}</SelectValue>
+              <SelectValue>{getEtapaDisplayName(tarefa)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">—</SelectItem>
