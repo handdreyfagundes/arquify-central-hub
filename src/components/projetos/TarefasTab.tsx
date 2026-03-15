@@ -366,11 +366,42 @@ export default function TarefasTab({ projetoId }: Props) {
         {/* STAGE */}
         <TableCell className="py-2">
           <Select
-            value={tarefa.etapa_id ?? "none"}
-            onValueChange={(v) => updateField(tarefa.id, "etapa_id", v === "none" ? null : v)}
+            value={(tarefa as any).subetapa_id ?? tarefa.etapa_id ?? "none"}
+            onValueChange={async (v) => {
+              if (v === "none") {
+                try {
+                  const { error } = await supabase.from("tarefas").update({ etapa_id: null, subetapa_id: null } as any).eq("id", tarefa.id);
+                  if (error) throw error;
+                  setTarefas((prev) => prev.map((t) => t.id === tarefa.id ? { ...t, etapa_id: null, subetapa_id: null } as any : t));
+                } catch (err: any) {
+                  toast({ title: "Erro ao atualizar", description: err.message, variant: "destructive" });
+                }
+                return;
+              }
+              const sub = subetapas.find((s) => s.id === v);
+              if (sub) {
+                // Substage selected: save parent etapa_id + subetapa_id
+                try {
+                  const { error } = await supabase.from("tarefas").update({ etapa_id: sub.etapa_id, subetapa_id: v } as any).eq("id", tarefa.id);
+                  if (error) throw error;
+                  setTarefas((prev) => prev.map((t) => t.id === tarefa.id ? { ...t, etapa_id: sub.etapa_id, subetapa_id: v } as any : t));
+                } catch (err: any) {
+                  toast({ title: "Erro ao atualizar", description: err.message, variant: "destructive" });
+                }
+              } else {
+                // Main stage selected: save etapa_id, clear subetapa_id
+                try {
+                  const { error } = await supabase.from("tarefas").update({ etapa_id: v, subetapa_id: null } as any).eq("id", tarefa.id);
+                  if (error) throw error;
+                  setTarefas((prev) => prev.map((t) => t.id === tarefa.id ? { ...t, etapa_id: v, subetapa_id: null } as any : t));
+                } catch (err: any) {
+                  toast({ title: "Erro ao atualizar", description: err.message, variant: "destructive" });
+                }
+              }
+            }}
           >
             <SelectTrigger className="h-7 text-xs border-none shadow-none bg-transparent hover:bg-muted px-1">
-              <SelectValue>{getEtapaName(tarefa.etapa_id)}</SelectValue>
+              <SelectValue>{getEtapaDisplayName(tarefa)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">—</SelectItem>
