@@ -887,6 +887,7 @@ export type Database = {
           responsavel_id: string | null
           revisao: number | null
           status: Database["public"]["Enums"]["task_status"]
+          subetapa_id: string | null
           titulo: string
           updated_at: string
         }
@@ -905,6 +906,7 @@ export type Database = {
           responsavel_id?: string | null
           revisao?: number | null
           status?: Database["public"]["Enums"]["task_status"]
+          subetapa_id?: string | null
           titulo: string
           updated_at?: string
         }
@@ -923,6 +925,7 @@ export type Database = {
           responsavel_id?: string | null
           revisao?: number | null
           status?: Database["public"]["Enums"]["task_status"]
+          subetapa_id?: string | null
           titulo?: string
           updated_at?: string
         }
@@ -947,6 +950,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_rentabilidade_projetos"
             referencedColumns: ["projeto_id"]
+          },
+          {
+            foreignKeyName: "tarefas_subetapa_id_fkey"
+            columns: ["subetapa_id"]
+            isOneToOne: false
+            referencedRelation: "subetapas"
+            referencedColumns: ["id"]
           },
         ]
       }
