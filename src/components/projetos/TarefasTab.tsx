@@ -295,10 +295,20 @@ export default function TarefasTab({ projetoId }: Props) {
   const baseTasks = isShowingAll ? tarefas : isShowingCompleted ? completedTarefas : activeTarefas;
 
   // Sorting & filtering
+  const searchLower = searchQuery.toLowerCase().trim();
   const sorted = [...baseTasks]
     .filter((t) => {
-      if (isShowingAll || isShowingCompleted) return true;
-      return !filterStatus || t.status === filterStatus;
+      // Status filter
+      const statusOk = isShowingAll || isShowingCompleted || !filterStatus || t.status === filterStatus;
+      if (!statusOk) return false;
+      // Search filter
+      if (searchLower) {
+        const titleMatch = t.titulo.toLowerCase().includes(searchLower);
+        const specMatch = `${t.ambiente ?? ""} ${t.item ?? ""}`.toLowerCase().includes(searchLower);
+        const respMatch = getResponsaveisNames(t.id).toLowerCase().includes(searchLower);
+        if (!titleMatch && !specMatch && !respMatch) return false;
+      }
+      return true;
     })
     .sort((a, b) => {
       let cmp = 0;
