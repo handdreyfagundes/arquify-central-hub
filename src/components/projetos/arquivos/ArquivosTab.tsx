@@ -19,16 +19,16 @@ interface Etapa {
 
 interface ArquivosTabProps {
   projetoId: string;
-  workspaceId: string;
 }
 
 const DEFAULT_TABS = ["Projeto", "Externos", "Obra"];
 
-const ArquivosTab = ({ projetoId, workspaceId }: ArquivosTabProps) => {
+const ArquivosTab = ({ projetoId }: ArquivosTabProps) => {
   const [activeTab, setActiveTab] = useState("Projeto");
   const [customTabs, setCustomTabs] = useState<string[]>([]);
   const [showAddTab, setShowAddTab] = useState(false);
   const [newTabName, setNewTabName] = useState("");
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
 
   // Cronograma data
   const [etapas, setEtapas] = useState<Etapa[]>([]);
@@ -38,6 +38,20 @@ const ArquivosTab = ({ projetoId, workspaceId }: ArquivosTabProps) => {
   const [loading, setLoading] = useState(true);
 
   const allTabs = [...DEFAULT_TABS, ...customTabs];
+
+  // Fetch workspace_id from profile
+  useEffect(() => {
+    (async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) return;
+      const { data } = await supabase
+        .from("profiles")
+        .select("workspace_id")
+        .eq("user_id", userData.user.id)
+        .single();
+      if (data) setWorkspaceId(data.workspace_id);
+    })();
+  }, []);
 
   const loadCronograma = useCallback(async () => {
     setLoading(true);
@@ -55,7 +69,6 @@ const ArquivosTab = ({ projetoId, workspaceId }: ArquivosTabProps) => {
           subMap[stage.id] = subs;
 
           if (subs.length === 0) {
-            // Stage without substages — load stage-level revisions
             const stgRevs = await listRevisoesByEtapa(stage.id);
             stgRevMap[stage.id] = stgRevs;
           } else {
@@ -109,6 +122,14 @@ const ArquivosTab = ({ projetoId, workspaceId }: ArquivosTabProps) => {
     saveCustomTabs(customTabs.filter((t) => t !== name));
     if (activeTab === name) setActiveTab("Projeto");
   };
+
+  if (!workspaceId) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
