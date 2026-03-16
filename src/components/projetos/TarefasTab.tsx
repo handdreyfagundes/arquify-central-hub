@@ -632,8 +632,10 @@ export default function TarefasTab({ projetoId }: Props) {
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              {STATUS_OPTIONS.map((s) => (
+              <SelectItem value="all">Ativas</SelectItem>
+              <SelectItem value="todas">Todas</SelectItem>
+              <SelectItem value="concluida">Concluídas</SelectItem>
+              {STATUS_OPTIONS.filter(s => s.value !== "concluida").map((s) => (
                 <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
               ))}
             </SelectContent>
