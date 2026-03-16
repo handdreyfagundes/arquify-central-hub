@@ -163,8 +163,8 @@ export default function TarefasTab({ projetoId }: Props) {
     const entry = timeTotals.find((t) => t.tarefa_id === taskId);
     const mins = entry?.total ?? 0;
     if (mins === 0) return "0 h";
-    const decimal = Math.round((mins / 60) * 1000) / 1000;
-    return `${decimal} h`;
+    const decimal = mins / 60;
+    return `${decimal.toFixed(1)} h`;
   };
 
   const getEtapaDisplayName = (tarefa: Tarefa) => {
