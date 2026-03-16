@@ -239,8 +239,13 @@ const ProjetoDetalhe = () => {
           <TarefasTab projetoId={projeto.id} />
         </TabsContent>
 
+        {/* ARQUIVOS */}
+        <TabsContent value="arquivos">
+          <ArquivosTab projetoId={projeto.id} />
+        </TabsContent>
+
         {/* Placeholder tabs */}
-        {PROJECT_TABS.filter((t) => !["visao-geral", "cronograma", "tarefas"].includes(t.value)).map((tab) => (
+        {PROJECT_TABS.filter((t) => !["visao-geral", "cronograma", "tarefas", "arquivos"].includes(t.value)).map((tab) => (
           <TabsContent key={tab.value} value={tab.value}>
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-16 text-center">
