@@ -163,24 +163,30 @@ export default function TarefasTab({ projetoId }: Props) {
     const entry = timeTotals.find((t) => t.tarefa_id === taskId);
     const mins = entry?.total ?? 0;
     if (mins === 0) return "0 h";
-    const decimal = Math.round((mins / 60) * 1000) / 1000;
-    return `${decimal} h`;
+    const decimal = mins / 60;
+    return `${decimal.toFixed(1)} h`;
   };
 
-  const getEtapaDisplayName = (tarefa: Tarefa) => {
+  const getEtapaDisplayInfo = (tarefa: Tarefa): { stage: string | null; substage: string | null } => {
     const subId = (tarefa as any).subetapa_id as string | null;
     if (subId) {
       const sub = subetapas.find((s) => s.id === subId);
       if (sub) {
         const parent = etapas.find((e) => e.id === sub.etapa_id);
-        return parent ? `${parent.nome} › ${sub.nome}` : sub.nome;
+        return { stage: parent?.nome ?? null, substage: sub.nome };
       }
     }
     if (tarefa.etapa_id) {
       const etapa = etapas.find((e) => e.id === tarefa.etapa_id);
-      return etapa?.nome ?? "—";
+      return { stage: etapa?.nome ?? null, substage: null };
     }
-    return "—";
+    return { stage: null, substage: null };
+  };
+
+  const getEtapaDisplayName = (tarefa: Tarefa) => {
+    const info = getEtapaDisplayInfo(tarefa);
+    if (info.substage && info.stage) return `${info.stage} › ${info.substage}`;
+    return info.stage ?? "—";
   };
 
   const getProfileName = (userId: string | null) => {
@@ -282,9 +288,17 @@ export default function TarefasTab({ projetoId }: Props) {
   const activeTarefas = tarefas.filter((t) => t.status !== "concluida");
   const completedTarefas = tarefas.filter((t) => t.status === "concluida");
 
-  // Sorting & filtering (active only)
-  const sorted = [...activeTarefas]
-    .filter((t) => !filterStatus || t.status === filterStatus)
+  // Determine which tasks to show based on filter
+  const isShowingAll = filterStatus === "todas";
+  const isShowingCompleted = filterStatus === "concluida";
+  const baseTasks = isShowingAll ? tarefas : isShowingCompleted ? completedTarefas : activeTarefas;
+
+  // Sorting & filtering
+  const sorted = [...baseTasks]
+    .filter((t) => {
+      if (isShowingAll || isShowingCompleted) return true;
+      return !filterStatus || t.status === filterStatus;
+    })
     .sort((a, b) => {
       let cmp = 0;
       switch (sortBy) {
@@ -400,8 +414,21 @@ export default function TarefasTab({ projetoId }: Props) {
               }
             }}
           >
-            <SelectTrigger className="h-7 text-xs border-none shadow-none bg-transparent hover:bg-muted px-1">
-              <SelectValue>{getEtapaDisplayName(tarefa)}</SelectValue>
+            <SelectTrigger className="h-auto min-h-[28px] text-xs border-none shadow-none bg-transparent hover:bg-muted px-1 py-1">
+              <SelectValue>
+                {(() => {
+                  const info = getEtapaDisplayInfo(tarefa);
+                  if (info.substage && info.stage) {
+                    return (
+                      <div className="flex flex-col items-start leading-tight">
+                        <span className="text-xs text-foreground">{info.stage}</span>
+                        <span className="text-[11px] text-muted-foreground">↳ {info.substage}</span>
+                      </div>
+                    );
+                  }
+                  return <span className="text-xs">{info.stage ?? "—"}</span>;
+                })()}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">—</SelectItem>
@@ -605,8 +632,10 @@ export default function TarefasTab({ projetoId }: Props) {
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              {STATUS_OPTIONS.map((s) => (
+              <SelectItem value="all">Ativas</SelectItem>
+              <SelectItem value="todas">Todas</SelectItem>
+              <SelectItem value="concluida">Concluídas</SelectItem>
+              {STATUS_OPTIONS.filter(s => s.value !== "concluida").map((s) => (
                 <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
               ))}
             </SelectContent>
@@ -674,8 +703,8 @@ export default function TarefasTab({ projetoId }: Props) {
         </Table>
       </div>
 
-      {/* Completed tasks collapsible section */}
-      {completedTarefas.length > 0 && (
+      {/* Completed tasks collapsible section (hidden when filter already shows them) */}
+      {completedTarefas.length > 0 && !isShowingAll && !isShowingCompleted && (
         <Collapsible open={completedOpen} onOpenChange={setCompletedOpen}>
           <CollapsibleTrigger asChild>
             <Button variant="ghost" size="sm" className="gap-2 text-xs text-muted-foreground">
