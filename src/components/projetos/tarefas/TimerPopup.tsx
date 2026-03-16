@@ -126,9 +126,12 @@ export default function TimerPopup({ tarefaId, projetoId, profiles, open, onClos
   };
 
   const addManual = async () => {
-    const mins = parseInt(manualMinutes);
-    if (!mins || mins <= 0 || !selectedUser || !workspaceId) {
+    const h = parseInt(manualHours) || 0;
+    const m = parseInt(manualMinutes) || 0;
+    const mins = h * 60 + m;
+    if (mins <= 0 || !selectedUser || !workspaceId) {
       if (!selectedUser) toast({ title: "Selecione o responsável", variant: "destructive" });
+      if (mins <= 0) toast({ title: "Informe pelo menos 1 minuto", variant: "destructive" });
       return;
     }
 
@@ -144,7 +147,8 @@ export default function TimerPopup({ tarefaId, projetoId, profiles, open, onClos
         duration_minutes: mins,
       });
       if (error) throw error;
-      toast({ title: `${mins} min adicionados` });
+      toast({ title: `${h > 0 ? h + "h " : ""}${m > 0 ? m + "min" : ""} adicionados` });
+      setManualHours("");
       setManualMinutes("");
       await refreshEntries();
     } catch (err: any) {
