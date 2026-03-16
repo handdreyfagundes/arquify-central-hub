@@ -98,6 +98,7 @@ export default function TarefasTab({ projetoId }: Props) {
   const [sortBy, setSortBy] = useState<string>("created_at");
   const [sortAsc, setSortAsc] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Edit states
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
@@ -294,10 +295,20 @@ export default function TarefasTab({ projetoId }: Props) {
   const baseTasks = isShowingAll ? tarefas : isShowingCompleted ? completedTarefas : activeTarefas;
 
   // Sorting & filtering
+  const searchLower = searchQuery.toLowerCase().trim();
   const sorted = [...baseTasks]
     .filter((t) => {
-      if (isShowingAll || isShowingCompleted) return true;
-      return !filterStatus || t.status === filterStatus;
+      // Status filter
+      const statusOk = isShowingAll || isShowingCompleted || !filterStatus || t.status === filterStatus;
+      if (!statusOk) return false;
+      // Search filter
+      if (searchLower) {
+        const titleMatch = t.titulo.toLowerCase().includes(searchLower);
+        const specMatch = `${t.ambiente ?? ""} ${t.item ?? ""}`.toLowerCase().includes(searchLower);
+        const respMatch = getResponsaveisNames(t.id).toLowerCase().includes(searchLower);
+        if (!titleMatch && !specMatch && !respMatch) return false;
+      }
+      return true;
     })
     .sort((a, b) => {
       let cmp = 0;
@@ -620,11 +631,19 @@ export default function TarefasTab({ projetoId }: Props) {
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-3">
-        <Button size="sm" onClick={addTask} className="gap-1.5">
-          <Plus className="size-4" />
-          Nova tarefa
-        </Button>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={addTask} className="gap-1.5">
+            <Plus className="size-4" />
+            Nova tarefa
+          </Button>
+          <Input
+            placeholder="Buscar tarefa..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-8 w-[200px] text-xs"
+          />
+        </div>
 
         <div className="flex items-center gap-2">
           <Select value={filterStatus ?? "all"} onValueChange={(v) => setFilterStatus(v === "all" ? null : v)}>
