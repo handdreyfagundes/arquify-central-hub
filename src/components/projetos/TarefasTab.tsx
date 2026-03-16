@@ -167,20 +167,26 @@ export default function TarefasTab({ projetoId }: Props) {
     return `${decimal.toFixed(1)} h`;
   };
 
-  const getEtapaDisplayName = (tarefa: Tarefa) => {
+  const getEtapaDisplayInfo = (tarefa: Tarefa): { stage: string | null; substage: string | null } => {
     const subId = (tarefa as any).subetapa_id as string | null;
     if (subId) {
       const sub = subetapas.find((s) => s.id === subId);
       if (sub) {
         const parent = etapas.find((e) => e.id === sub.etapa_id);
-        return parent ? `${parent.nome} › ${sub.nome}` : sub.nome;
+        return { stage: parent?.nome ?? null, substage: sub.nome };
       }
     }
     if (tarefa.etapa_id) {
       const etapa = etapas.find((e) => e.id === tarefa.etapa_id);
-      return etapa?.nome ?? "—";
+      return { stage: etapa?.nome ?? null, substage: null };
     }
-    return "—";
+    return { stage: null, substage: null };
+  };
+
+  const getEtapaDisplayName = (tarefa: Tarefa) => {
+    const info = getEtapaDisplayInfo(tarefa);
+    if (info.substage && info.stage) return `${info.stage} › ${info.substage}`;
+    return info.stage ?? "—";
   };
 
   const getProfileName = (userId: string | null) => {
