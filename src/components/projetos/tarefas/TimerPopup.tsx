@@ -46,6 +46,7 @@ export default function TimerPopup({ tarefaId, projetoId, profiles, open, onClos
 
   const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [manualHours, setManualHours] = useState("");
   const [manualMinutes, setManualMinutes] = useState("");
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [entries, setEntries] = useState<TimeEntry[]>([]);
