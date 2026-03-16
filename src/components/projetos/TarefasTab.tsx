@@ -406,8 +406,21 @@ export default function TarefasTab({ projetoId }: Props) {
               }
             }}
           >
-            <SelectTrigger className="h-7 text-xs border-none shadow-none bg-transparent hover:bg-muted px-1">
-              <SelectValue>{getEtapaDisplayName(tarefa)}</SelectValue>
+            <SelectTrigger className="h-auto min-h-[28px] text-xs border-none shadow-none bg-transparent hover:bg-muted px-1 py-1">
+              <SelectValue>
+                {(() => {
+                  const info = getEtapaDisplayInfo(tarefa);
+                  if (info.substage && info.stage) {
+                    return (
+                      <div className="flex flex-col items-start leading-tight">
+                        <span className="text-xs text-foreground">{info.stage}</span>
+                        <span className="text-[11px] text-muted-foreground">↳ {info.substage}</span>
+                      </div>
+                    );
+                  }
+                  return <span className="text-xs">{info.stage ?? "—"}</span>;
+                })()}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">—</SelectItem>
