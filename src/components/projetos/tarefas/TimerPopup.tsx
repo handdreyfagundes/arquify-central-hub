@@ -2,20 +2,23 @@ import { useState, useEffect, useRef } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Play, Pause, Square, Plus } from "lucide-react";
+import { Play, Pause, Square, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 
 interface Profile {
   user_id: string;
@@ -46,6 +49,7 @@ export default function TimerPopup({ tarefaId, projetoId, profiles, open, onClos
   const [manualMinutes, setManualMinutes] = useState("");
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [entries, setEntries] = useState<TimeEntry[]>([]);
+  const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const startRef = useRef<Date | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -58,15 +62,9 @@ export default function TimerPopup({ tarefaId, projetoId, profiles, open, onClos
       .then(({ data }) => setWorkspaceId(data?.workspace_id ?? null));
   }, [user]);
 
-  // Fetch entry history
   useEffect(() => {
     if (!open) return;
-    supabase
-      .from("time_entries")
-      .select("id, user_id, duration_minutes, created_at")
-      .eq("tarefa_id", tarefaId)
-      .order("created_at", { ascending: false })
-      .then(({ data }) => setEntries(data ?? []));
+    refreshEntries();
   }, [open, tarefaId]);
 
   const refreshEntries = async () => {
@@ -153,6 +151,18 @@ export default function TimerPopup({ tarefaId, projetoId, profiles, open, onClos
     }
   };
 
+  const deleteEntry = async (id: string) => {
+    try {
+      const { error } = await supabase.from("time_entries").delete().eq("id", id);
+      if (error) throw error;
+      toast({ title: "Registro excluído" });
+      await refreshEntries();
+    } catch (err: any) {
+      toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });
+    }
+    setDeleteEntryId(null);
+  };
+
   const formatElapsed = (s: number) => {
     const h = Math.floor(s / 3600);
     const m = Math.floor((s % 3600) / 60);
@@ -172,7 +182,7 @@ export default function TimerPopup({ tarefaId, projetoId, profiles, open, onClos
   };
 
   const totalMinutes = entries.reduce((sum, e) => sum + (e.duration_minutes ?? 0), 0);
-  const totalDecimal = Math.round((totalMinutes / 60) * 100) / 100;
+  const totalDecimal = (totalMinutes / 60).toFixed(1);
 
   useEffect(() => {
     return () => {
@@ -181,101 +191,132 @@ export default function TimerPopup({ tarefaId, projetoId, profiles, open, onClos
   }, []);
 
   return (
-    <Dialog open={open} onOpenChange={() => { if (running) stopTimer(); onClose(); }}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="text-base">Time Tracker</DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={() => { if (running) stopTimer(); onClose(); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base">Time Tracker</DialogTitle>
+          </DialogHeader>
 
-        <div className="space-y-5">
-          {/* Responsible selector */}
-          <div>
-            <Label className="text-xs text-muted-foreground">Responsável</Label>
-            <Select value={selectedUser} onValueChange={setSelectedUser}>
-              <SelectTrigger className="h-8 mt-1 text-xs">
-                <SelectValue placeholder="Selecione..." />
-              </SelectTrigger>
-              <SelectContent>
-                {profiles.map((p) => (
-                  <SelectItem key={p.user_id} value={p.user_id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Timer display */}
-          <div className="text-center">
-            <span className="text-4xl font-mono tabular-nums text-foreground">
-              {formatElapsed(elapsed)}
-            </span>
-          </div>
-
-          {/* Controls */}
-          <div className="flex items-center justify-center gap-3">
-            {!running ? (
-              <Button size="sm" onClick={startTimer} className="gap-1.5">
-                <Play className="size-4" /> Iniciar
-              </Button>
-            ) : (
-              <Button size="sm" variant="outline" onClick={pauseTimer} className="gap-1.5">
-                <Pause className="size-4" /> Pausar
-              </Button>
-            )}
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={stopTimer}
-              disabled={elapsed === 0}
-              className="gap-1.5"
-            >
-              <Square className="size-4" /> Parar
-            </Button>
-          </div>
-
-          {/* Manual add */}
-          <div className="border-t pt-4 space-y-2">
-            <Label className="text-xs text-muted-foreground">Adicionar manualmente (minutos)</Label>
-            <div className="flex gap-2">
-              <Input
-                type="number"
-                min={1}
-                value={manualMinutes}
-                onChange={(e) => setManualMinutes(e.target.value)}
-                placeholder="30"
-                className="h-8"
-              />
-              <Button size="sm" onClick={addManual} className="h-8 gap-1">
-                <Plus className="size-3" /> Adicionar
-              </Button>
-            </div>
-          </div>
-
-          {/* Entry history */}
-          <div className="border-t pt-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">Histórico</Label>
-              <span className="text-xs font-medium text-foreground">Total: {totalDecimal} h</span>
-            </div>
-            {entries.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic">Nenhum registro.</p>
-            ) : (
-              <ScrollArea className="max-h-40">
-                <div className="space-y-1">
-                  {entries.map((entry) => (
-                    <div key={entry.id} className="flex items-center justify-between text-xs py-1.5 px-1 rounded hover:bg-muted">
-                      <span className="text-foreground">{getProfileName(entry.user_id)}</span>
-                      <span className="text-muted-foreground">{formatDuration(entry.duration_minutes)}</span>
-                      <span className="text-muted-foreground">
-                        {format(new Date(entry.created_at), "dd/MM/yy", { locale: ptBR })}
-                      </span>
-                    </div>
+          <div className="space-y-5">
+            {/* Responsible selector */}
+            <div>
+              <Label className="text-xs text-muted-foreground">Responsável</Label>
+              <Select value={selectedUser} onValueChange={setSelectedUser}>
+                <SelectTrigger className="h-8 mt-1 text-xs">
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {profiles.map((p) => (
+                    <SelectItem key={p.user_id} value={p.user_id}>{p.name}</SelectItem>
                   ))}
-                </div>
-              </ScrollArea>
-            )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Timer display */}
+            <div className="text-center">
+              <span className="text-4xl font-mono tabular-nums text-foreground">
+                {formatElapsed(elapsed)}
+              </span>
+            </div>
+
+            {/* Controls */}
+            <div className="flex items-center justify-center gap-3">
+              {!running ? (
+                <Button size="sm" onClick={startTimer} className="gap-1.5">
+                  <Play className="size-4" /> Iniciar
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={pauseTimer} className="gap-1.5">
+                  <Pause className="size-4" /> Pausar
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={stopTimer}
+                disabled={elapsed === 0}
+                className="gap-1.5"
+              >
+                <Square className="size-4" /> Parar
+              </Button>
+            </div>
+
+            {/* Manual add */}
+            <div className="border-t pt-4 space-y-2">
+              <Label className="text-xs text-muted-foreground">Adicionar manualmente (minutos)</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  min={1}
+                  value={manualMinutes}
+                  onChange={(e) => setManualMinutes(e.target.value)}
+                  placeholder="30"
+                  className="h-8"
+                />
+                <Button size="sm" onClick={addManual} className="h-8 gap-1">
+                  <Plus className="size-3" /> Adicionar
+                </Button>
+              </div>
+            </div>
+
+            {/* Entry history */}
+            <div className="border-t pt-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">Histórico</Label>
+                <span className="text-xs font-medium text-foreground">Total: {totalDecimal} h</span>
+              </div>
+              {entries.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">Nenhum registro.</p>
+              ) : (
+                <ScrollArea className="max-h-40">
+                  <div className="space-y-1">
+                    {entries.map((entry) => (
+                      <div key={entry.id} className="group/entry flex items-center justify-between text-xs py-1.5 px-1 rounded hover:bg-muted">
+                        <span className="text-foreground">{getProfileName(entry.user_id)}</span>
+                        <span className="text-muted-foreground">{formatDuration(entry.duration_minutes)}</span>
+                        <span className="text-muted-foreground">
+                          {format(new Date(entry.created_at), "dd/MM/yy", { locale: ptBR })}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-5 opacity-0 group-hover/entry:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                          onClick={() => setDeleteEntryId(entry.id)}
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+            </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete entry confirmation */}
+      <AlertDialog open={!!deleteEntryId} onOpenChange={() => setDeleteEntryId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir registro</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este registro de tempo? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteEntryId && deleteEntry(deleteEntryId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

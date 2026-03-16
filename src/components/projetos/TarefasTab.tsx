@@ -703,8 +703,8 @@ export default function TarefasTab({ projetoId }: Props) {
         </Table>
       </div>
 
-      {/* Completed tasks collapsible section */}
-      {completedTarefas.length > 0 && (
+      {/* Completed tasks collapsible section (hidden when filter already shows them) */}
+      {completedTarefas.length > 0 && !isShowingAll && !isShowingCompleted && (
         <Collapsible open={completedOpen} onOpenChange={setCompletedOpen}>
           <CollapsibleTrigger asChild>
             <Button variant="ghost" size="sm" className="gap-2 text-xs text-muted-foreground">
