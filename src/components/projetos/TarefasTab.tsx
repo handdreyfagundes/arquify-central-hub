@@ -288,9 +288,17 @@ export default function TarefasTab({ projetoId }: Props) {
   const activeTarefas = tarefas.filter((t) => t.status !== "concluida");
   const completedTarefas = tarefas.filter((t) => t.status === "concluida");
 
-  // Sorting & filtering (active only)
-  const sorted = [...activeTarefas]
-    .filter((t) => !filterStatus || t.status === filterStatus)
+  // Determine which tasks to show based on filter
+  const isShowingAll = filterStatus === "todas";
+  const isShowingCompleted = filterStatus === "concluida";
+  const baseTasks = isShowingAll ? tarefas : isShowingCompleted ? completedTarefas : activeTarefas;
+
+  // Sorting & filtering
+  const sorted = [...baseTasks]
+    .filter((t) => {
+      if (isShowingAll || isShowingCompleted) return true;
+      return !filterStatus || t.status === filterStatus;
+    })
     .sort((a, b) => {
       let cmp = 0;
       switch (sortBy) {
