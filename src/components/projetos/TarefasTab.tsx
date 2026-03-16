@@ -98,6 +98,7 @@ export default function TarefasTab({ projetoId }: Props) {
   const [sortBy, setSortBy] = useState<string>("created_at");
   const [sortAsc, setSortAsc] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Edit states
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
