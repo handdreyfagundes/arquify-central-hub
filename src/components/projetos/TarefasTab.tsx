@@ -631,11 +631,19 @@ export default function TarefasTab({ projetoId }: Props) {
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-3">
-        <Button size="sm" onClick={addTask} className="gap-1.5">
-          <Plus className="size-4" />
-          Nova tarefa
-        </Button>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={addTask} className="gap-1.5">
+            <Plus className="size-4" />
+            Nova tarefa
+          </Button>
+          <Input
+            placeholder="Buscar tarefa..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-8 w-[200px] text-xs"
+          />
+        </div>
 
         <div className="flex items-center gap-2">
           <Select value={filterStatus ?? "all"} onValueChange={(v) => setFilterStatus(v === "all" ? null : v)}>
