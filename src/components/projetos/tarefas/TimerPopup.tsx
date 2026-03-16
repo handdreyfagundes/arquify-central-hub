@@ -46,6 +46,7 @@ export default function TimerPopup({ tarefaId, projetoId, profiles, open, onClos
 
   const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [manualHours, setManualHours] = useState("");
   const [manualMinutes, setManualMinutes] = useState("");
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [entries, setEntries] = useState<TimeEntry[]>([]);
@@ -125,9 +126,12 @@ export default function TimerPopup({ tarefaId, projetoId, profiles, open, onClos
   };
 
   const addManual = async () => {
-    const mins = parseInt(manualMinutes);
-    if (!mins || mins <= 0 || !selectedUser || !workspaceId) {
+    const h = parseInt(manualHours) || 0;
+    const m = parseInt(manualMinutes) || 0;
+    const mins = h * 60 + m;
+    if (mins <= 0 || !selectedUser || !workspaceId) {
       if (!selectedUser) toast({ title: "Selecione o responsável", variant: "destructive" });
+      if (mins <= 0) toast({ title: "Informe pelo menos 1 minuto", variant: "destructive" });
       return;
     }
 
@@ -143,7 +147,8 @@ export default function TimerPopup({ tarefaId, projetoId, profiles, open, onClos
         duration_minutes: mins,
       });
       if (error) throw error;
-      toast({ title: `${mins} min adicionados` });
+      toast({ title: `${h > 0 ? h + "h " : ""}${m > 0 ? m + "min" : ""} adicionados` });
+      setManualHours("");
       setManualMinutes("");
       await refreshEntries();
     } catch (err: any) {
@@ -245,16 +250,31 @@ export default function TimerPopup({ tarefaId, projetoId, profiles, open, onClos
 
             {/* Manual add */}
             <div className="border-t pt-4 space-y-2">
-              <Label className="text-xs text-muted-foreground">Adicionar manualmente (minutos)</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="number"
-                  min={1}
-                  value={manualMinutes}
-                  onChange={(e) => setManualMinutes(e.target.value)}
-                  placeholder="30"
-                  className="h-8"
-                />
+              <Label className="text-xs text-muted-foreground">Adicionar manualmente</Label>
+              <div className="flex gap-2 items-center">
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={manualHours}
+                    onChange={(e) => setManualHours(e.target.value)}
+                    placeholder="0"
+                    className="h-8 w-16"
+                  />
+                  <span className="text-xs text-muted-foreground">h</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={59}
+                    value={manualMinutes}
+                    onChange={(e) => setManualMinutes(e.target.value)}
+                    placeholder="0"
+                    className="h-8 w-16"
+                  />
+                  <span className="text-xs text-muted-foreground">min</span>
+                </div>
                 <Button size="sm" onClick={addManual} className="h-8 gap-1">
                   <Plus className="size-3" /> Adicionar
                 </Button>
