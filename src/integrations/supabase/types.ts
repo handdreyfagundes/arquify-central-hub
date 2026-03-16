@@ -78,36 +78,45 @@ export type Database = {
       }
       arquivos: {
         Row: {
+          aba: string
           created_at: string
           etapa_id: string | null
           file_url: string
           id: string
           nome: string
           projeto_id: string
+          revisao_id: string | null
+          storage_path: string | null
           tarefa_id: string | null
           uploaded_by: string | null
           visivel_cliente: boolean | null
           workspace_id: string
         }
         Insert: {
+          aba?: string
           created_at?: string
           etapa_id?: string | null
           file_url: string
           id?: string
           nome: string
           projeto_id: string
+          revisao_id?: string | null
+          storage_path?: string | null
           tarefa_id?: string | null
           uploaded_by?: string | null
           visivel_cliente?: boolean | null
           workspace_id: string
         }
         Update: {
+          aba?: string
           created_at?: string
           etapa_id?: string | null
           file_url?: string
           id?: string
           nome?: string
           projeto_id?: string
+          revisao_id?: string | null
+          storage_path?: string | null
           tarefa_id?: string | null
           uploaded_by?: string | null
           visivel_cliente?: boolean | null
@@ -134,6 +143,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_rentabilidade_projetos"
             referencedColumns: ["projeto_id"]
+          },
+          {
+            foreignKeyName: "arquivos_revisao_id_fkey"
+            columns: ["revisao_id"]
+            isOneToOne: false
+            referencedRelation: "revisoes"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "arquivos_tarefa_id_fkey"
