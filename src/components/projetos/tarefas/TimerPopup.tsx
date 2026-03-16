@@ -250,16 +250,31 @@ export default function TimerPopup({ tarefaId, projetoId, profiles, open, onClos
 
             {/* Manual add */}
             <div className="border-t pt-4 space-y-2">
-              <Label className="text-xs text-muted-foreground">Adicionar manualmente (minutos)</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="number"
-                  min={1}
-                  value={manualMinutes}
-                  onChange={(e) => setManualMinutes(e.target.value)}
-                  placeholder="30"
-                  className="h-8"
-                />
+              <Label className="text-xs text-muted-foreground">Adicionar manualmente</Label>
+              <div className="flex gap-2 items-center">
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={manualHours}
+                    onChange={(e) => setManualHours(e.target.value)}
+                    placeholder="0"
+                    className="h-8 w-16"
+                  />
+                  <span className="text-xs text-muted-foreground">h</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={59}
+                    value={manualMinutes}
+                    onChange={(e) => setManualMinutes(e.target.value)}
+                    placeholder="0"
+                    className="h-8 w-16"
+                  />
+                  <span className="text-xs text-muted-foreground">min</span>
+                </div>
                 <Button size="sm" onClick={addManual} className="h-8 gap-1">
                   <Plus className="size-3" /> Adicionar
                 </Button>
