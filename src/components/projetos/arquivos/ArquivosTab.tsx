@@ -29,11 +29,13 @@ const ArquivosTab = ({ projetoId }: ArquivosTabProps) => {
   const [activeTab, setActiveTab] = useState("Projeto");
   const [customTabs, setCustomTabs] = useState<string[]>([]);
   const [showAddTab, setShowAddTab] = useState(false);
+  const [addStep, setAddStep] = useState<"choose" | "manual" | "template">("choose");
   const [newTabName, setNewTabName] = useState("");
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [renamingIndex, setRenamingIndex] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const [templates, setTemplates] = useState<TabTemplate[]>([]);
 
   // Cronograma data
   const [etapas, setEtapas] = useState<Etapa[]>([]);
