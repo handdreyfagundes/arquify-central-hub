@@ -269,6 +269,19 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* File preview */}
+      {previewIndex !== null && previewableFiles[previewIndex] && (
+        <FilePreviewDialog
+          open
+          onClose={() => setPreviewIndex(null)}
+          fileUrl={previewableFiles[previewIndex].file_url}
+          fileName={previewableFiles[previewIndex].nome}
+          files={previewableFiles}
+          currentIndex={previewIndex}
+          onNavigate={setPreviewIndex}
+        />
+      )}
     </div>
   );
 };
