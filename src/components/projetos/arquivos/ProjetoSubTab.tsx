@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Check } from "lucide-react";
+import { ChevronDown, ChevronRight, Check, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -115,10 +115,18 @@ const ProjetoSubTab = ({
                 </Badge>
               )}
 
-              {/* Pending state — yellow label, no dropdown */}
+              {/* Pending state — yellow label with remove button */}
               {approval === "pending" && (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-yellow-400 bg-yellow-50 text-yellow-700">
+                <Badge
+                  variant="outline"
+                  className="text-[10px] px-1.5 py-0 border-yellow-400 bg-yellow-50 text-yellow-700 gap-1 cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleApprovalChange(rev, "none");
+                  }}
+                >
                   Pendente aprovação
+                  <X className="size-3 hover:text-yellow-900" />
                 </Badge>
               )}
 
