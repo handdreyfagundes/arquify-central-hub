@@ -122,8 +122,8 @@ const ProjetoSubTab = ({
                 </Badge>
               )}
 
-              {/* No status yet & is latest — show dropdown */}
-              {isLatest && !approval && (
+              {/* No status yet & is latest & not R00 — show dropdown */}
+              {isLatest && !approval && rev.numero_revisao > 0 && (
                 <Select
                   value="none"
                   onValueChange={(val) => handleApprovalChange(rev, val)}
