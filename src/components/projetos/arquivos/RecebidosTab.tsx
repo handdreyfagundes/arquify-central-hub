@@ -73,7 +73,7 @@ interface ArquivoRow {
 }
 
 type ViewMode = "list" | "small" | "medium" | "large";
-type SortDir = "newest" | "oldest";
+type SortDir = "newest" | "oldest" | "extension";
 
 const ACCEPTED_FORMATS = ".pdf,.dwg,.skp,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.zip";
 const IMAGE_EXTS = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
