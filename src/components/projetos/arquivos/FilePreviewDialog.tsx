@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Download, X, ZoomIn, ZoomOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, X, ZoomIn, ZoomOut, Maximize2, Minimize2 } from "lucide-react";
 
 interface FilePreviewDialogProps {
   open: boolean;
@@ -28,6 +28,18 @@ export function canPreviewFile(fileName: string) {
   return IMAGE_EXTS.includes(ext) || IFRAME_EXTS.includes(ext);
 }
 
+/** Returns a thumbnail-friendly URL for grid views. Images get their own URL, PDFs/Office get null. */
+export function getThumbnailUrl(fileName: string, fileUrl: string): string | null {
+  const ext = getExt(fileName);
+  if (IMAGE_EXTS.includes(ext)) return fileUrl;
+  if (PDF_EXTS.includes(ext)) return fileUrl; // will be rendered as mini embed
+  return null;
+}
+
+export function isPdfFile(fileName: string) {
+  return PDF_EXTS.includes(getExt(fileName));
+}
+
 const FilePreviewDialog = ({
   open,
   onClose,
@@ -38,6 +50,7 @@ const FilePreviewDialog = ({
   onNavigate,
 }: FilePreviewDialogProps) => {
   const [zoom, setZoom] = useState(1);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const ext = getExt(fileName);
   const isImage = IMAGE_EXTS.includes(ext);
   const isPdf = PDF_EXTS.includes(ext);
@@ -52,6 +65,7 @@ const FilePreviewDialog = ({
   const handleOpenChange = (v: boolean) => {
     if (!v) {
       setZoom(1);
+      setIsFullscreen(false);
       onClose();
     }
   };
@@ -63,9 +77,15 @@ const FilePreviewDialog = ({
     ? `https://docs.google.com/gview?url=${encodeURIComponent(fileUrl)}&embedded=true`
     : fileUrl;
 
+  const sizeClasses = isFullscreen
+    ? "max-w-[100vw] max-h-[100vh] w-[100vw] h-[100vh] rounded-none"
+    : "max-w-[90vw] max-h-[90vh] w-auto";
+
+  const contentHeight = isFullscreen ? "h-[calc(100vh-44px)]" : "min-h-[60vh] max-h-[80vh]";
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[90vw] max-h-[90vh] w-auto p-0 border-none bg-black/95 overflow-hidden [&>button]:hidden">
+      <DialogContent className={`${sizeClasses} p-0 border-none bg-black/95 overflow-hidden [&>button]:hidden`}>
         {/* Top bar */}
         <div className="flex items-center justify-between px-4 py-2.5 bg-black/80 border-b border-white/10">
           <p className="text-sm text-white/80 truncate max-w-[50vw]">{fileName}</p>
@@ -81,6 +101,15 @@ const FilePreviewDialog = ({
                 </Button>
               </>
             )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8 text-white/70 hover:text-white hover:bg-white/10"
+              onClick={() => setIsFullscreen((f) => !f)}
+              title={isFullscreen ? "Sair do fullscreen" : "Fullscreen"}
+            >
+              {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+            </Button>
             <Button variant="ghost" size="icon" className="size-8 text-white/70 hover:text-white hover:bg-white/10" onClick={() => window.open(fileUrl, "_blank")}>
               <Download className="size-4" />
             </Button>
@@ -91,7 +120,7 @@ const FilePreviewDialog = ({
         </div>
 
         {/* Content */}
-        <div className="flex items-center justify-center min-h-[60vh] max-h-[80vh] overflow-auto relative">
+        <div className={`flex items-center justify-center ${contentHeight} overflow-auto relative`}>
           {hasPrev && (
             <Button
               variant="ghost"
@@ -117,7 +146,7 @@ const FilePreviewDialog = ({
             <img
               src={fileUrl}
               alt={fileName}
-              className="max-w-full max-h-[78vh] object-contain transition-transform duration-200"
+              className={`max-w-full object-contain transition-transform duration-200 ${isFullscreen ? "max-h-[calc(100vh-52px)]" : "max-h-[78vh]"}`}
               style={{ transform: `scale(${zoom})` }}
               draggable={false}
             />
@@ -126,7 +155,7 @@ const FilePreviewDialog = ({
             <iframe
               src={viewerUrl}
               title={fileName}
-              className="w-[85vw] h-[78vh] border-none bg-white"
+              className={`border-none bg-white ${isFullscreen ? "w-full h-full" : "w-[85vw] h-[78vh]"}`}
             />
           )}
         </div>
