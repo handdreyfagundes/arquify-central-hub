@@ -57,7 +57,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import FilePreviewDialog from "./FilePreviewDialog";
+import FilePreviewDialog, { canPreviewFile } from "./FilePreviewDialog";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -447,11 +447,7 @@ const RecebidosTab = ({ projetoId, workspaceId }: RecebidosTabProps) => {
 
   // Previewable files across all sections
   const allPreviewable = useMemo(
-    () =>
-      files.filter((f) => {
-        const e = getFileExtension(f.nome);
-        return IMAGE_EXTS.includes(e) || PDF_EXTS.includes(e);
-      }),
+    () => files.filter((f) => canPreviewFile(f.nome)),
     [files]
   );
 
@@ -475,7 +471,7 @@ const RecebidosTab = ({ projetoId, workspaceId }: RecebidosTabProps) => {
             <tbody>
               {sectionFiles.map((file) => {
                 const ext = getFileExtension(file.nome);
-                const isPreviewable = IMAGE_EXTS.includes(ext) || PDF_EXTS.includes(ext);
+                const isPreviewable = canPreviewFile(file.nome);
                 const pIdx = allPreviewable.findIndex((f) => f.id === file.id);
 
                 return (
@@ -562,7 +558,7 @@ const RecebidosTab = ({ projetoId, workspaceId }: RecebidosTabProps) => {
         {sectionFiles.map((file) => {
           const ext = getFileExtension(file.nome);
           const isImage = IMAGE_EXTS.includes(ext);
-          const isPreviewable = isImage || PDF_EXTS.includes(ext);
+          const isPreviewable = canPreviewFile(file.nome);
           const pIdx = allPreviewable.findIndex((f) => f.id === file.id);
 
           return (
