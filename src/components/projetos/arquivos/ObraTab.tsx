@@ -94,6 +94,19 @@ function isVideoFile(name: string) {
 
 type SortMode = "newest" | "oldest" | "date_specific" | "date_range";
 
+function normalizeStageLabel(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function isLevantamentoLabel(value: string) {
+  const normalized = normalizeStageLabel(value);
+  return normalized.includes("levantamento") || normalized.includes("leavantamento");
+}
+
 /* ------------------------------------------------------------------ */
 /*  MediaGrid — reusable thumbnail grid                                */
 /* ------------------------------------------------------------------ */
