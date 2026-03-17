@@ -57,7 +57,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import FilePreviewDialog, { canPreviewFile } from "./FilePreviewDialog";
+import FilePreviewDialog, { canPreviewFile, isPdfFile } from "./FilePreviewDialog";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -558,6 +558,7 @@ const RecebidosTab = ({ projetoId, workspaceId }: RecebidosTabProps) => {
         {sectionFiles.map((file) => {
           const ext = getFileExtension(file.nome);
           const isImage = IMAGE_EXTS.includes(ext);
+          const isPdf = isPdfFile(file.nome);
           const isPreviewable = canPreviewFile(file.nome);
           const pIdx = allPreviewable.findIndex((f) => f.id === file.id);
 
@@ -574,6 +575,16 @@ const RecebidosTab = ({ projetoId, workspaceId }: RecebidosTabProps) => {
                   className={`${thumbSize} w-full object-cover rounded`}
                   loading="lazy"
                 />
+              ) : isPdf ? (
+                <div className={`${thumbSize} w-full rounded overflow-hidden relative bg-white`}>
+                  <iframe
+                    src={`${file.file_url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                    title={file.nome}
+                    className="w-[200%] h-[200%] border-none pointer-events-none origin-top-left scale-50"
+                    loading="lazy"
+                    tabIndex={-1}
+                  />
+                </div>
               ) : (
                 <div className={`${thumbSize} w-full flex items-center justify-center bg-muted/30 rounded`}>
                   {getFileIcon(ext, iconSize)}
