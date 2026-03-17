@@ -165,6 +165,14 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
     });
   }, [files, search, sortMode]);
 
+  const previewableFiles = useMemo(
+    () => filtered.filter((f) => {
+      const e = getFileExtension(f.nome);
+      return IMAGE_EXTS_G.includes(e) || PDF_EXTS_G.includes(e);
+    }),
+    [filtered]
+  );
+
   return (
     <div className="space-y-3">
       {/* Toolbar */}
