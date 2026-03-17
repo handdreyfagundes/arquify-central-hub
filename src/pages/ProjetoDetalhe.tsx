@@ -25,6 +25,12 @@ import {
   Users,
   User,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -130,6 +136,21 @@ const ProjetoDetalhe = () => {
             >
               <tab.icon className="size-4" />
               {tab.label}
+              {tab.value === "arquivos" && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="relative flex size-2.5 ml-0.5 cursor-help">
+                        <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+                        <span className="relative inline-flex size-2.5 rounded-full bg-red-500" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      Live sync com o portal do cliente
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </TabsTrigger>
           ))}
         </TabsList>

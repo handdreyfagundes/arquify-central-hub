@@ -192,8 +192,8 @@ const RevisionFilesPopup = ({
       <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
         <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="text-base">
-              Arquivos – {revisionLabel} {parentName}
+          <DialogTitle className="text-base">
+              {revisionLabel} – {parentName}
             </DialogTitle>
           </DialogHeader>
 
@@ -256,15 +256,12 @@ const RevisionFilesPopup = ({
                     className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group"
                   >
                     {getFileIcon(ext)}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate text-foreground">
-                        {file.nome}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {ext.toUpperCase()} ·{" "}
-                        {new Date(file.created_at).toLocaleDateString("pt-BR")}
-                      </p>
-                    </div>
+                    <span className="text-sm font-medium truncate text-foreground flex-1 min-w-0">
+                      {file.nome}
+                    </span>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap ml-4">
+                      {new Date(file.created_at).toLocaleDateString("pt-BR")}
+                    </span>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button
                         variant="ghost"
