@@ -94,6 +94,17 @@ const RevisionFilesPopup = ({
   const [search, setSearch] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("date");
   const [deleteTarget, setDeleteTarget] = useState<ArquivoRow | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+
+  const IMAGE_EXTS = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
+  const PDF_EXTS = ["pdf"];
+  const previewableFiles = useMemo(
+    () => filtered.filter((f) => {
+      const e = getFileExtension(f.nome);
+      return IMAGE_EXTS.includes(e) || PDF_EXTS.includes(e);
+    }),
+    [filtered]
+  );
 
   const loadFiles = async () => {
     setLoading(true);
