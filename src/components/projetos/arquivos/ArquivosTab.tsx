@@ -223,6 +223,11 @@ const ArquivosTab = ({ projetoId }: ArquivosTabProps) => {
           stageRevisionsMap={stageRevisionsMap}
           loading={loading}
         />
+      ) : activeTab === "Recebidos" ? (
+        <RecebidosTab
+          projetoId={projetoId}
+          workspaceId={workspaceId}
+        />
       ) : (
         <GenericFileTab
           projetoId={projetoId}
