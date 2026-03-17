@@ -650,9 +650,8 @@ const RecebidosTab = ({ projetoId, workspaceId }: RecebidosTabProps) => {
         {/* Sort */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
-              {sortDir === "newest" ? <SortDesc className="size-3.5" /> : <SortAsc className="size-3.5" />}
-              {sortDir === "newest" ? "Mais recente" : "Mais antigo"}
+            <Button variant="outline" size="icon" className="h-8 w-8">
+              <ArrowUpDown className="size-3.5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -661,6 +660,9 @@ const RecebidosTab = ({ projetoId, workspaceId }: RecebidosTabProps) => {
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setSortDir("oldest")} className={sortDir === "oldest" ? "font-semibold" : ""}>
               Mais antigo
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setSortDir("extension")} className={sortDir === "extension" ? "font-semibold" : ""}>
+              Por extensão
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
