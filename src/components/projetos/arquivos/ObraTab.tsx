@@ -955,7 +955,7 @@ const ObraTab = ({ projetoId, workspaceId }: ObraTabProps) => {
             }}
           >
             <CheckSquare className="size-3.5" />
-            {editMode ? "Sair do modo edição" : "Editar"}
+            {editMode ? "Sair da seleção" : "Selecionar"}
           </Button>
         </div>
       </div>
