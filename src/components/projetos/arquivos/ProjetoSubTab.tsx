@@ -130,17 +130,53 @@ const ProjetoSubTab = ({
         {etapas.map((etapa) => {
           const subs = subetapasMap[etapa.id] || [];
           const stageRevs = stageRevisionsMap[etapa.id] || [];
-          const expanded = expandedStages.has(etapa.id);
-          const hasChildren = subs.length > 0 || stageRevs.length > 0;
+          const hasSubs = subs.length > 0;
 
+          // Stages WITH substages: show substages directly, no stage header
+          if (hasSubs) {
+            return subs.map((sub) => {
+              const revs = revisionsMap[sub.id] || [];
+              const hasRevs = revs.length > 0;
+              const expanded = expandedStages.has(sub.id);
+              return (
+                <div key={sub.id}>
+                  <div
+                    className="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                    onClick={() => hasRevs && toggleStage(sub.id)}
+                  >
+                    {hasRevs ? (
+                      expanded ? (
+                        <ChevronDown className="size-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="size-4 text-muted-foreground" />
+                      )
+                    ) : (
+                      <span className="size-4" />
+                    )}
+                    <span className="text-sm font-medium text-foreground flex-1">
+                      {sub.nome}
+                    </span>
+                  </div>
+                  {expanded && hasRevs && (
+                    <div className="ml-9">
+                      {renderRevisions(revs, sub.nome)}
+                    </div>
+                  )}
+                </div>
+              );
+            });
+          }
+
+          // Stages WITHOUT substages: show stage header with its revisions
+          const expanded = expandedStages.has(etapa.id);
+          const hasRevs = stageRevs.length > 0;
           return (
             <div key={etapa.id}>
-              {/* Stage row */}
               <div
-                className="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors group"
-                onClick={() => hasChildren && toggleStage(etapa.id)}
+                className="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                onClick={() => hasRevs && toggleStage(etapa.id)}
               >
-                {hasChildren ? (
+                {hasRevs ? (
                   expanded ? (
                     <ChevronDown className="size-4 text-muted-foreground" />
                   ) : (
@@ -153,31 +189,9 @@ const ProjetoSubTab = ({
                   {etapa.nome}
                 </span>
               </div>
-
-              {/* Stage-level revisions (no substages) */}
-              {expanded && stageRevs.length > 0 && subs.length === 0 && (
+              {expanded && hasRevs && (
                 <div className="ml-9">
                   {renderRevisions(stageRevs, etapa.nome)}
-                </div>
-              )}
-
-              {/* Substages */}
-              {expanded && subs.length > 0 && (
-                <div className="ml-6 border-l border-border pl-3 space-y-0.5">
-                  {subs.map((sub) => {
-                    const revs = revisionsMap[sub.id] || [];
-                    return (
-                      <div key={sub.id}>
-                        <div className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/30 transition-colors">
-                          <Circle className="size-2 text-muted-foreground/50" />
-                          <span className="text-sm text-muted-foreground flex-1">
-                            {sub.nome}
-                          </span>
-                        </div>
-                        {revs.length > 0 && renderRevisions(revs, sub.nome)}
-                      </div>
-                    );
-                  })}
                 </div>
               )}
             </div>
