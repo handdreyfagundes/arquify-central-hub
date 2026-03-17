@@ -174,7 +174,7 @@ const ProjetoSubTab = ({
                             {sub.nome}
                           </span>
                         </div>
-                        {revs.length > 0 && renderRevisions(revs, `${etapa.nome} – ${sub.nome}`)}
+                        {revs.length > 0 && renderRevisions(revs, sub.nome)}
                       </div>
                     );
                   })}
