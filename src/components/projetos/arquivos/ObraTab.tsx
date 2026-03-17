@@ -1020,14 +1020,18 @@ const ObraTab = ({ projetoId, workspaceId }: ObraTabProps) => {
       </AlertDialog>
 
       {/* File preview */}
-      {previewIndex !== null && (
+      {previewIndex !== null && previewableFiles[previewIndex] && (
         <FilePreviewDialog
+          open={true}
+          onClose={() => setPreviewIndex(null)}
+          fileUrl={previewableFiles[previewIndex].file_url}
+          fileName={previewableFiles[previewIndex].nome}
           files={previewableFiles.map((f) => ({
             nome: f.nome,
             file_url: f.file_url,
           }))}
-          initialIndex={previewIndex}
-          onClose={() => setPreviewIndex(null)}
+          currentIndex={previewIndex}
+          onNavigate={setPreviewIndex}
         />
       )}
     </div>
