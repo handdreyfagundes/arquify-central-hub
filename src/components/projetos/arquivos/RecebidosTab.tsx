@@ -16,8 +16,8 @@ import {
   Grid2x2,
   Grid3x3,
   Pencil,
-  SortAsc,
-  SortDesc,
+  ArrowUpDown,
+  
   Filter,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -73,7 +73,7 @@ interface ArquivoRow {
 }
 
 type ViewMode = "list" | "small" | "medium" | "large";
-type SortDir = "newest" | "oldest";
+type SortDir = "newest" | "oldest" | "extension";
 
 const ACCEPTED_FORMATS = ".pdf,.dwg,.skp,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.zip";
 const IMAGE_EXTS = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
@@ -425,6 +425,11 @@ const RecebidosTab = ({ projetoId, workspaceId }: RecebidosTabProps) => {
       }
 
       return [...result].sort((a, b) => {
+        if (sortDir === "extension") {
+          const extA = a.nome.split(".").pop()?.toLowerCase() || "";
+          const extB = b.nome.split(".").pop()?.toLowerCase() || "";
+          return extA.localeCompare(extB);
+        }
         const da = new Date(a.created_at).getTime();
         const db = new Date(b.created_at).getTime();
         return sortDir === "newest" ? db - da : da - db;
@@ -645,9 +650,8 @@ const RecebidosTab = ({ projetoId, workspaceId }: RecebidosTabProps) => {
         {/* Sort */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
-              {sortDir === "newest" ? <SortDesc className="size-3.5" /> : <SortAsc className="size-3.5" />}
-              {sortDir === "newest" ? "Mais recente" : "Mais antigo"}
+            <Button variant="outline" size="icon" className="h-8 w-8">
+              <ArrowUpDown className="size-3.5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -656,6 +660,9 @@ const RecebidosTab = ({ projetoId, workspaceId }: RecebidosTabProps) => {
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setSortDir("oldest")} className={sortDir === "oldest" ? "font-semibold" : ""}>
               Mais antigo
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setSortDir("extension")} className={sortDir === "extension" ? "font-semibold" : ""}>
+              Por extensão
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
