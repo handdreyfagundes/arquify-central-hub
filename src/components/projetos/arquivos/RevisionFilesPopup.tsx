@@ -192,8 +192,8 @@ const RevisionFilesPopup = ({
       <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
         <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="text-base">
-              Arquivos – {revisionLabel} {parentName}
+          <DialogTitle className="text-base">
+              {revisionLabel} – {parentName}
             </DialogTitle>
           </DialogHeader>
 
