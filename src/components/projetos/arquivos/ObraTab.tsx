@@ -920,8 +920,29 @@ const ObraTab = ({ projetoId, workspaceId }: ObraTabProps) => {
           )}
         </div>
 
-        {/* Edit mode toggle */}
+        {/* View mode */}
         <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="size-8">
+                <Eye className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {VIEW_OPTIONS.map((opt) => (
+                <DropdownMenuItem
+                  key={opt.mode}
+                  onClick={() => setViewMode(opt.mode)}
+                  className={viewMode === opt.mode ? "font-semibold" : ""}
+                >
+                  <span className="mr-2">{opt.icon}</span>
+                  {opt.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Edit mode toggle */}
           <Button
             variant={editMode ? "default" : "outline"}
             size="sm"
