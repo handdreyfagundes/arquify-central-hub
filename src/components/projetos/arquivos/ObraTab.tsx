@@ -992,45 +992,51 @@ const ObraTab = ({ projetoId, workspaceId }: ObraTabProps) => {
       {/* ============================================================ */}
 
       <section>
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <h3 className="text-base font-semibold text-foreground">Levantamento</h3>
-            <span className="text-sm text-muted-foreground flex items-center gap-1">
-              <CalendarDays className="size-3.5" />
-              {formattedLevDate}
-            </span>
-          </div>
+        <button
+          className="flex items-center gap-2 mb-3 w-full text-left group"
+          onClick={() => setLevantamentoOpen((v) => !v)}
+        >
+          <ChevronDown className={cn("size-4 text-muted-foreground transition-transform", !levantamentoOpen && "-rotate-90")} />
+          <h3 className="text-base font-semibold text-foreground">Levantamento</h3>
+          <span className="text-sm text-muted-foreground flex items-center gap-1">
+            <CalendarDays className="size-3.5" />
+            {formattedLevDate}
+          </span>
+          <div className="flex-1" />
           <Button
             variant="outline"
             size="sm"
             className="h-8 gap-1.5 text-xs"
-            onClick={() => triggerUpload("levantamento")}
+            onClick={(e) => { e.stopPropagation(); triggerUpload("levantamento"); }}
             disabled={uploading}
           >
             <ImagePlus className="size-3.5" />
             {uploading && uploadTarget === "levantamento" ? "Enviando..." : "Adicionar"}
           </Button>
-        </div>
+        </button>
 
-        <div
-          className={cn(
-            "rounded-lg border-2 border-dashed p-4 transition-colors min-h-[120px]",
-            dragOver === "levantamento" ? "border-primary bg-primary/5" : "border-border"
-          )}
-          onDragOver={(e) => { e.preventDefault(); setDragOver("levantamento"); }}
-          onDragLeave={() => setDragOver(null)}
-          onDrop={(e) => handleDrop(e, "levantamento")}
-        >
-          <MediaGrid
-            files={sortedLevFiles}
-            editMode={editMode}
-            selected={selected}
-            onToggleSelect={toggleSelect}
-            onPreview={setPreviewIndex}
-            onDelete={setDeleteTarget}
-            previewableFiles={previewableFiles}
-          />
-        </div>
+        {levantamentoOpen && (
+          <div
+            className={cn(
+              "rounded-lg border-2 border-dashed p-4 transition-colors min-h-[120px]",
+              dragOver === "levantamento" ? "border-primary bg-primary/5" : "border-border"
+            )}
+            onDragOver={(e) => { e.preventDefault(); setDragOver("levantamento"); }}
+            onDragLeave={() => setDragOver(null)}
+            onDrop={(e) => handleDrop(e, "levantamento")}
+          >
+            <MediaGrid
+              files={sortedLevFiles}
+              editMode={editMode}
+              selected={selected}
+              onToggleSelect={toggleSelect}
+              onPreview={setPreviewIndex}
+              onDelete={setDeleteTarget}
+              previewableFiles={previewableFiles}
+              viewMode={viewMode}
+            />
+          </div>
+        )}
       </section>
 
       {/* ============================================================ */}
