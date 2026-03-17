@@ -1046,7 +1046,7 @@ const ObraTab = ({ projetoId, workspaceId }: ObraTabProps) => {
             />
           </div>
         )}
-      </section>
+      </section>}
 
       {/* ============================================================ */}
       {/*  VISITAS SECTION                                              */}
