@@ -21,7 +21,7 @@ interface ArquivosTabProps {
   projetoId: string;
 }
 
-const DEFAULT_TABS = ["Projeto", "Externos", "Obra"];
+const DEFAULT_TABS = ["Projeto", "Recebidos", "Obra"];
 
 const ArquivosTab = ({ projetoId }: ArquivosTabProps) => {
   const [activeTab, setActiveTab] = useState("Projeto");
