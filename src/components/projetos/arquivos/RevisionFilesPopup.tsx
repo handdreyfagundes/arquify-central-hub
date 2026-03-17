@@ -37,6 +37,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { Revisao } from "@/services/subetapas";
+import FilePreviewDialog from "./FilePreviewDialog";
 
 interface ArquivoRow {
   id: string;
@@ -93,6 +94,10 @@ const RevisionFilesPopup = ({
   const [search, setSearch] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("date");
   const [deleteTarget, setDeleteTarget] = useState<ArquivoRow | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+
+  const IMAGE_EXTS = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
+  const PDF_EXTS = ["pdf"];
 
   const loadFiles = async () => {
     setLoading(true);
@@ -187,6 +192,14 @@ const RevisionFilesPopup = ({
     });
   }, [files, search, sortMode]);
 
+  const previewableFiles = useMemo(
+    () => filtered.filter((f) => {
+      const e = getFileExtension(f.nome);
+      return IMAGE_EXTS.includes(e) || PDF_EXTS.includes(e);
+    }),
+    [filtered]
+  );
+
   return (
     <>
       <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -250,10 +263,13 @@ const RevisionFilesPopup = ({
             ) : (
               filtered.map((file) => {
                 const ext = getFileExtension(file.nome);
+                const isPreviewable = IMAGE_EXTS.includes(ext) || PDF_EXTS.includes(ext);
+                const pIdx = previewableFiles.findIndex((f) => f.id === file.id);
                 return (
                   <div
                     key={file.id}
-                    className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group"
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group ${isPreviewable ? "cursor-pointer" : ""}`}
+                    onClick={() => isPreviewable && pIdx !== -1 && setPreviewIndex(pIdx)}
                   >
                     {getFileIcon(ext)}
                     <span className="text-sm font-medium truncate text-foreground flex-1 min-w-0">
@@ -328,6 +344,19 @@ const RevisionFilesPopup = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* File preview */}
+      {previewIndex !== null && previewableFiles[previewIndex] && (
+        <FilePreviewDialog
+          open
+          onClose={() => setPreviewIndex(null)}
+          fileUrl={previewableFiles[previewIndex].file_url}
+          fileName={previewableFiles[previewIndex].nome}
+          files={previewableFiles}
+          currentIndex={previewIndex}
+          onNavigate={setPreviewIndex}
+        />
+      )}
     </>
   );
 };

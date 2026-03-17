@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import FilePreviewDialog from "./FilePreviewDialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -74,6 +75,10 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
   const [search, setSearch] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("date");
   const [deleteTarget, setDeleteTarget] = useState<ArquivoRow | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+
+  const IMAGE_EXTS_G = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
+  const PDF_EXTS_G = ["pdf"];
 
   const abaKey = tabName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_");
 
@@ -160,6 +165,14 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
     });
   }, [files, search, sortMode]);
 
+  const previewableFiles = useMemo(
+    () => filtered.filter((f) => {
+      const e = getFileExtension(f.nome);
+      return IMAGE_EXTS_G.includes(e) || PDF_EXTS_G.includes(e);
+    }),
+    [filtered]
+  );
+
   return (
     <div className="space-y-3">
       {/* Toolbar */}
@@ -211,8 +224,14 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
         <div className="space-y-1">
           {filtered.map((file) => {
             const ext = getFileExtension(file.nome);
+            const isPreviewable = IMAGE_EXTS_G.includes(ext) || PDF_EXTS_G.includes(ext);
+            const pIdx = previewableFiles.findIndex((f) => f.id === file.id);
             return (
-              <div key={file.id} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group">
+              <div
+                key={file.id}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group ${isPreviewable ? "cursor-pointer" : ""}`}
+                onClick={() => isPreviewable && pIdx !== -1 && setPreviewIndex(pIdx)}
+              >
                 {getFileIcon(ext)}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate text-foreground">{file.nome}</p>
@@ -249,6 +268,19 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* File preview */}
+      {previewIndex !== null && previewableFiles[previewIndex] && (
+        <FilePreviewDialog
+          open
+          onClose={() => setPreviewIndex(null)}
+          fileUrl={previewableFiles[previewIndex].file_url}
+          fileName={previewableFiles[previewIndex].nome}
+          files={previewableFiles}
+          currentIndex={previewIndex}
+          onNavigate={setPreviewIndex}
+        />
+      )}
     </div>
   );
 };
