@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Check } from "lucide-react";
+import { ChevronDown, ChevronRight, Check, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
