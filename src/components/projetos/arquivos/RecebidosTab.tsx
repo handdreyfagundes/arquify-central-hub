@@ -425,6 +425,11 @@ const RecebidosTab = ({ projetoId, workspaceId }: RecebidosTabProps) => {
       }
 
       return [...result].sort((a, b) => {
+        if (sortDir === "extension") {
+          const extA = a.nome.split(".").pop()?.toLowerCase() || "";
+          const extB = b.nome.split(".").pop()?.toLowerCase() || "";
+          return extA.localeCompare(extB);
+        }
         const da = new Date(a.created_at).getTime();
         const db = new Date(b.created_at).getTime();
         return sortDir === "newest" ? db - da : da - db;
