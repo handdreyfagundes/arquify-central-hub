@@ -8,12 +8,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import type { Subetapa, Revisao } from "@/services/subetapas";
 import RevisionFilesPopup from "./RevisionFilesPopup";
 
@@ -32,22 +26,6 @@ interface ProjetoSubTabProps {
   stageRevisionsMap: Record<string, Revisao[]>;
   loading: boolean;
 }
-
-const LiveSyncDot = () => (
-  <TooltipProvider>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="relative flex size-2.5 cursor-help">
-          <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-          <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side="right" className="text-xs">
-        Live sync com o portal do cliente
-      </TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
-);
 
 const ProjetoSubTab = ({
   projetoId,
@@ -80,13 +58,14 @@ const ProjetoSubTab = ({
     const latestIdx = revisions.length - 1;
 
     return (
-      <div className="flex flex-wrap items-center gap-1.5 ml-2">
+      <div className="ml-6 space-y-0.5 mt-0.5">
         {revisions.map((rev, idx) => {
           const isLatest = idx === latestIdx;
           const label = `R${String(rev.numero_revisao).padStart(2, "0")}`;
+          const approvalVal = approvalLabels[rev.id] || "none";
 
           return (
-            <div key={rev.id} className="flex items-center gap-1">
+            <div key={rev.id} className="flex items-center gap-2 py-0.5">
               <button
                 onClick={() =>
                   setSelectedRevision({ revision: rev, label, parentName })
@@ -101,7 +80,7 @@ const ProjetoSubTab = ({
               </button>
               {isLatest && (
                 <Select
-                  value={approvalLabels[rev.id] || "none"}
+                  value={approvalVal}
                   onValueChange={(val) =>
                     setApprovalLabels((prev) => ({ ...prev, [rev.id]: val }))
                   }
@@ -116,6 +95,11 @@ const ProjetoSubTab = ({
                     </SelectItem>
                   </SelectContent>
                 </Select>
+              )}
+              {isLatest && approvalVal === "pendente_aprovacao" && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-yellow-400 bg-yellow-50 text-yellow-700">
+                  Pendente aprovação
+                </Badge>
               )}
             </div>
           );
@@ -168,10 +152,14 @@ const ProjetoSubTab = ({
                 <span className="text-sm font-medium text-foreground flex-1">
                   {etapa.nome}
                 </span>
-                <LiveSyncDot />
-                {/* Stage-level revisions (no substages) */}
-                {stageRevs.length > 0 && renderRevisions(stageRevs, etapa.nome)}
               </div>
+
+              {/* Stage-level revisions (no substages) */}
+              {expanded && stageRevs.length > 0 && subs.length === 0 && (
+                <div className="ml-9">
+                  {renderRevisions(stageRevs, etapa.nome)}
+                </div>
+              )}
 
               {/* Substages */}
               {expanded && subs.length > 0 && (
@@ -179,15 +167,14 @@ const ProjetoSubTab = ({
                   {subs.map((sub) => {
                     const revs = revisionsMap[sub.id] || [];
                     return (
-                      <div
-                        key={sub.id}
-                        className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/30 transition-colors"
-                      >
-                        <Circle className="size-2 text-muted-foreground/50" />
-                        <span className="text-sm text-muted-foreground flex-1">
-                          {sub.nome}
-                        </span>
-                        {renderRevisions(revs, `${etapa.nome} – ${sub.nome}`)}
+                      <div key={sub.id}>
+                        <div className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/30 transition-colors">
+                          <Circle className="size-2 text-muted-foreground/50" />
+                          <span className="text-sm text-muted-foreground flex-1">
+                            {sub.nome}
+                          </span>
+                        </div>
+                        {revs.length > 0 && renderRevisions(revs, `${etapa.nome} – ${sub.nome}`)}
                       </div>
                     );
                   })}
