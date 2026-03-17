@@ -345,6 +345,18 @@ const ObraTab = ({ projetoId, workspaceId }: ObraTabProps) => {
   const [filterRangeFrom, setFilterRangeFrom] = useState<Date | undefined>();
   const [filterRangeTo, setFilterRangeTo] = useState<Date | undefined>();
 
+  // -- View mode --
+  const [viewMode, setViewMode] = useState<ViewMode>("medium");
+
+  // -- Collapsible --
+  const [levantamentoOpen, setLevantamentoOpen] = useState(true);
+  const [visitasOpen, setVisitasOpen] = useState(true);
+  const [visitaOpenMap, setVisitaOpenMap] = useState<Record<string, boolean>>({});
+
+  const toggleVisitaOpen = (id: string) => {
+    setVisitaOpenMap((prev) => ({ ...prev, [id]: prev[id] === false ? true : !(prev[id] ?? true) }));
+  };
+
   // -- Drag & drop --
   const [dragOver, setDragOver] = useState<string | null>(null);
 
