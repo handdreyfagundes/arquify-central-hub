@@ -224,10 +224,9 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
         <div className="space-y-1">
           {filtered.map((file) => {
             const ext = getFileExtension(file.nome);
+            const isPreviewable = IMAGE_EXTS_G.includes(ext) || PDF_EXTS_G.includes(ext);
+            const pIdx = previewableFiles.findIndex((f) => f.id === file.id);
             return (
-              const isPreviewable = IMAGE_EXTS_G.includes(ext) || PDF_EXTS_G.includes(ext);
-              const pIdx = previewableFiles.findIndex((f) => f.id === file.id);
-              return (
               <div
                 key={file.id}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group ${isPreviewable ? "cursor-pointer" : ""}`}
