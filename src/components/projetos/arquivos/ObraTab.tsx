@@ -10,6 +10,11 @@ import {
   X,
   Calendar,
   Play,
+  ChevronDown,
+  Eye,
+  LayoutList,
+  Grid2x2,
+  Grid3x3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,6 +97,15 @@ function isVideoFile(name: string) {
   return VIDEO_EXTS.includes(getFileExt(name));
 }
 
+type ViewMode = "list" | "small" | "medium" | "large";
+
+const VIEW_OPTIONS: { mode: ViewMode; label: string; icon: React.ReactNode }[] = [
+  { mode: "list", label: "Lista", icon: <LayoutList className="size-4" /> },
+  { mode: "small", label: "Ícones pequenos", icon: <Grid3x3 className="size-4" /> },
+  { mode: "medium", label: "Ícones médios", icon: <Grid2x2 className="size-4" /> },
+  { mode: "large", label: "Ícones grandes", icon: <Grid2x2 className="size-5" /> },
+];
+
 type SortMode = "newest" | "oldest" | "date_specific" | "date_range";
 
 function normalizeStageLabel(value: string) {
@@ -119,6 +133,7 @@ interface MediaGridProps {
   onPreview: (idx: number) => void;
   onDelete: (file: ArquivoRow) => void;
   previewableFiles: ArquivoRow[];
+  viewMode: ViewMode;
 }
 
 const MediaGrid = ({
@@ -129,6 +144,7 @@ const MediaGrid = ({
   onPreview,
   onDelete,
   previewableFiles,
+  viewMode,
 }: MediaGridProps) => {
   if (files.length === 0)
     return (
@@ -137,8 +153,78 @@ const MediaGrid = ({
       </p>
     );
 
+  if (viewMode === "list") {
+    return (
+      <div className="space-y-1">
+        {files.map((file) => {
+          const isPreviewable = canPreviewFile(file.nome);
+          const pIdx = previewableFiles.findIndex((f) => f.id === file.id);
+          const ext = getFileExt(file.nome).toUpperCase();
+          const dateStr = new Date(file.created_at).toLocaleDateString("pt-BR");
+
+          return (
+            <div
+              key={file.id}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group",
+                isPreviewable && !editMode && "cursor-pointer"
+              )}
+              onClick={() => {
+                if (editMode) onToggleSelect(file.id);
+                else if (isPreviewable && pIdx !== -1) onPreview(pIdx);
+              }}
+            >
+              {editMode && (
+                <Checkbox
+                  checked={selected.has(file.id)}
+                  onCheckedChange={() => onToggleSelect(file.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="size-3.5 shrink-0"
+                />
+              )}
+              <div className="size-10 rounded overflow-hidden shrink-0 bg-muted/30">
+                {isVideoFile(file.nome) ? (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Play className="size-4 text-muted-foreground" />
+                  </div>
+                ) : (
+                  <img src={file.file_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground">
+                  {ext} · {dateStr}
+                </p>
+              </div>
+              {!editMode && (
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 text-destructive hover:text-destructive"
+                    onClick={(e) => { e.stopPropagation(); onDelete(file); }}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Grid modes
+  const gridClass =
+    viewMode === "small"
+      ? "grid-cols-4 sm:grid-cols-6 md:grid-cols-8"
+      : viewMode === "medium"
+      ? "grid-cols-3 sm:grid-cols-4 md:grid-cols-6"
+      : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4";
+
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+    <div className={`grid ${gridClass} gap-2`}>
       {files.map((file) => {
         const isVideo = isVideoFile(file.nome);
         const isPreviewable = canPreviewFile(file.nome);
@@ -178,7 +264,7 @@ const MediaGrid = ({
             ) : (
               <img
                 src={file.file_url}
-                alt={file.nome}
+                alt=""
                 className="w-full h-full object-cover"
                 loading="lazy"
               />
@@ -212,11 +298,6 @@ const MediaGrid = ({
                 </Button>
               </div>
             )}
-
-            {/* File name overlay */}
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-1.5 pt-4">
-              <p className="text-[10px] text-white truncate font-medium">{file.nome}</p>
-            </div>
           </div>
         );
       })}
@@ -263,6 +344,18 @@ const ObraTab = ({ projetoId, workspaceId }: ObraTabProps) => {
   const [filterDate, setFilterDate] = useState<Date | undefined>();
   const [filterRangeFrom, setFilterRangeFrom] = useState<Date | undefined>();
   const [filterRangeTo, setFilterRangeTo] = useState<Date | undefined>();
+
+  // -- View mode --
+  const [viewMode, setViewMode] = useState<ViewMode>("medium");
+
+  // -- Collapsible --
+  const [levantamentoOpen, setLevantamentoOpen] = useState(true);
+  const [visitasOpen, setVisitasOpen] = useState(true);
+  const [visitaOpenMap, setVisitaOpenMap] = useState<Record<string, boolean>>({});
+
+  const toggleVisitaOpen = (id: string) => {
+    setVisitaOpenMap((prev) => ({ ...prev, [id]: prev[id] === false ? true : !(prev[id] ?? true) }));
+  };
 
   // -- Drag & drop --
   const [dragOver, setDragOver] = useState<string | null>(null);
@@ -827,8 +920,29 @@ const ObraTab = ({ projetoId, workspaceId }: ObraTabProps) => {
           )}
         </div>
 
-        {/* Edit mode toggle */}
+        {/* View mode */}
         <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="size-8">
+                <Eye className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {VIEW_OPTIONS.map((opt) => (
+                <DropdownMenuItem
+                  key={opt.mode}
+                  onClick={() => setViewMode(opt.mode)}
+                  className={viewMode === opt.mode ? "font-semibold" : ""}
+                >
+                  <span className="mr-2">{opt.icon}</span>
+                  {opt.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Edit mode toggle */}
           <Button
             variant={editMode ? "default" : "outline"}
             size="sm"
@@ -878,45 +992,51 @@ const ObraTab = ({ projetoId, workspaceId }: ObraTabProps) => {
       {/* ============================================================ */}
 
       <section>
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <h3 className="text-base font-semibold text-foreground">Levantamento</h3>
-            <span className="text-sm text-muted-foreground flex items-center gap-1">
-              <CalendarDays className="size-3.5" />
-              {formattedLevDate}
-            </span>
-          </div>
+        <button
+          className="flex items-center gap-2 mb-3 w-full text-left group"
+          onClick={() => setLevantamentoOpen((v) => !v)}
+        >
+          <ChevronDown className={cn("size-4 text-muted-foreground transition-transform", !levantamentoOpen && "-rotate-90")} />
+          <h3 className="text-base font-semibold text-foreground">Levantamento</h3>
+          <span className="text-sm text-muted-foreground flex items-center gap-1">
+            <CalendarDays className="size-3.5" />
+            {formattedLevDate}
+          </span>
+          <div className="flex-1" />
           <Button
             variant="outline"
             size="sm"
             className="h-8 gap-1.5 text-xs"
-            onClick={() => triggerUpload("levantamento")}
+            onClick={(e) => { e.stopPropagation(); triggerUpload("levantamento"); }}
             disabled={uploading}
           >
             <ImagePlus className="size-3.5" />
             {uploading && uploadTarget === "levantamento" ? "Enviando..." : "Adicionar"}
           </Button>
-        </div>
+        </button>
 
-        <div
-          className={cn(
-            "rounded-lg border-2 border-dashed p-4 transition-colors min-h-[120px]",
-            dragOver === "levantamento" ? "border-primary bg-primary/5" : "border-border"
-          )}
-          onDragOver={(e) => { e.preventDefault(); setDragOver("levantamento"); }}
-          onDragLeave={() => setDragOver(null)}
-          onDrop={(e) => handleDrop(e, "levantamento")}
-        >
-          <MediaGrid
-            files={sortedLevFiles}
-            editMode={editMode}
-            selected={selected}
-            onToggleSelect={toggleSelect}
-            onPreview={setPreviewIndex}
-            onDelete={setDeleteTarget}
-            previewableFiles={previewableFiles}
-          />
-        </div>
+        {levantamentoOpen && (
+          <div
+            className={cn(
+              "rounded-lg border-2 border-dashed p-4 transition-colors min-h-[120px]",
+              dragOver === "levantamento" ? "border-primary bg-primary/5" : "border-border"
+            )}
+            onDragOver={(e) => { e.preventDefault(); setDragOver("levantamento"); }}
+            onDragLeave={() => setDragOver(null)}
+            onDrop={(e) => handleDrop(e, "levantamento")}
+          >
+            <MediaGrid
+              files={sortedLevFiles}
+              editMode={editMode}
+              selected={selected}
+              onToggleSelect={toggleSelect}
+              onPreview={setPreviewIndex}
+              onDelete={setDeleteTarget}
+              previewableFiles={previewableFiles}
+              viewMode={viewMode}
+            />
+          </div>
+        )}
       </section>
 
       {/* ============================================================ */}
@@ -924,84 +1044,100 @@ const ObraTab = ({ projetoId, workspaceId }: ObraTabProps) => {
       {/* ============================================================ */}
 
       <section>
-        <div className="flex items-center justify-between mb-3">
+        <button
+          className="flex items-center gap-2 mb-3 w-full text-left"
+          onClick={() => setVisitasOpen((v) => !v)}
+        >
+          <ChevronDown className={cn("size-4 text-muted-foreground transition-transform", !visitasOpen && "-rotate-90")} />
           <h3 className="text-base font-semibold text-foreground">Visitas</h3>
+          <div className="flex-1" />
           <Button
             size="sm"
             className="h-8 gap-1.5 text-xs"
-            onClick={() => setShowNewVisit(true)}
+            onClick={(e) => { e.stopPropagation(); setShowNewVisit(true); }}
           >
             <Plus className="size-3.5" />
             Nova Visita
           </Button>
-        </div>
+        </button>
 
-        {visitas.length === 0 ? (
-          <p className="text-sm text-muted-foreground italic py-4 text-center">
-            Nenhuma visita registrada. Clique em "Nova Visita" para começar.
-          </p>
-        ) : (
-          <div className="space-y-5">
-            {visitas.map((visita) => {
-              const vFiles = sortFiles(visitaFilesMap[visita.id] || []);
-              const visitLabel = `Visita ${String(visita.numero_visita).padStart(2, "0")}`;
-              const visitDateLabel = new Date(visita.data_visita + "T00:00:00").toLocaleDateString("pt-BR");
+        {visitasOpen && (
+          <>
+            {visitas.length === 0 ? (
+              <p className="text-sm text-muted-foreground italic py-4 text-center">
+                Nenhuma visita registrada. Clique em "Nova Visita" para começar.
+              </p>
+            ) : (
+              <div className="space-y-5">
+                {visitas.map((visita) => {
+                  const vFiles = sortFiles(visitaFilesMap[visita.id] || []);
+                  const visitLabel = `Visita ${String(visita.numero_visita).padStart(2, "0")}`;
+                  const visitDateLabel = new Date(visita.data_visita + "T00:00:00").toLocaleDateString("pt-BR");
+                  const isVisitaOpen = visitaOpenMap[visita.id] !== false;
 
-              return (
-                <div key={visita.id}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-semibold text-foreground">{visitLabel}</h4>
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <CalendarDays className="size-3" />
-                        {visitDateLabel}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 gap-1.5 text-xs"
-                        onClick={() => triggerUpload(visita.id)}
-                        disabled={uploading}
+                  return (
+                    <div key={visita.id}>
+                      <button
+                        className="flex items-center gap-2 mb-2 w-full text-left"
+                        onClick={() => toggleVisitaOpen(visita.id)}
                       >
-                        <ImagePlus className="size-3.5" />
-                        {uploading && uploadTarget === visita.id ? "Enviando..." : "Adicionar"}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-7 text-destructive hover:text-destructive"
-                        onClick={() => setDeleteVisitTarget(visita)}
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    </div>
-                  </div>
+                        <ChevronDown className={cn("size-3.5 text-muted-foreground transition-transform", !isVisitaOpen && "-rotate-90")} />
+                        <h4 className="text-sm font-semibold text-foreground">{visitLabel}</h4>
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <CalendarDays className="size-3" />
+                          {visitDateLabel}
+                        </span>
+                        <div className="flex-1" />
+                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 gap-1.5 text-xs"
+                            onClick={() => triggerUpload(visita.id)}
+                            disabled={uploading}
+                          >
+                            <ImagePlus className="size-3.5" />
+                            {uploading && uploadTarget === visita.id ? "Enviando..." : "Adicionar"}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-7 text-destructive hover:text-destructive"
+                            onClick={() => setDeleteVisitTarget(visita)}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        </div>
+                      </button>
 
-                  <div
-                    className={cn(
-                      "rounded-lg border-2 border-dashed p-3 transition-colors min-h-[80px]",
-                      dragOver === visita.id ? "border-primary bg-primary/5" : "border-border"
-                    )}
-                    onDragOver={(e) => { e.preventDefault(); setDragOver(visita.id); }}
-                    onDragLeave={() => setDragOver(null)}
-                    onDrop={(e) => handleDrop(e, visita.id)}
-                  >
-                    <MediaGrid
-                      files={vFiles}
-                      editMode={editMode}
-                      selected={selected}
-                      onToggleSelect={toggleSelect}
-                      onPreview={setPreviewIndex}
-                      onDelete={setDeleteTarget}
-                      previewableFiles={previewableFiles}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                      {isVisitaOpen && (
+                        <div
+                          className={cn(
+                            "rounded-lg border-2 border-dashed p-3 transition-colors min-h-[80px]",
+                            dragOver === visita.id ? "border-primary bg-primary/5" : "border-border"
+                          )}
+                          onDragOver={(e) => { e.preventDefault(); setDragOver(visita.id); }}
+                          onDragLeave={() => setDragOver(null)}
+                          onDrop={(e) => handleDrop(e, visita.id)}
+                        >
+                          <MediaGrid
+                            files={vFiles}
+                            editMode={editMode}
+                            selected={selected}
+                            onToggleSelect={toggleSelect}
+                            onPreview={setPreviewIndex}
+                            onDelete={setDeleteTarget}
+                            previewableFiles={previewableFiles}
+                            viewMode={viewMode}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
         )}
       </section>
 
