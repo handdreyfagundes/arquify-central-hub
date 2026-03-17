@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Plus, X, Pencil } from "lucide-react";
+import { Plus, X, Pencil, FolderPlus, Copy, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -8,7 +8,7 @@ import { listEtapasByProjeto } from "@/services/etapas";
 import { listSubetapasByEtapa, listRevisoesBySubetapa, listRevisoesByEtapa } from "@/services/subetapas";
 import type { Subetapa, Revisao } from "@/services/subetapas";
 import ProjetoSubTab from "./ProjetoSubTab";
-import GenericFileTab from "./GenericFileTab";
+import GenericFileTab, { loadTabTemplates, saveTabTemplates, type TabTemplate } from "./GenericFileTab";
 import RecebidosTab from "./RecebidosTab";
 import ObraTab from "./ObraTab";
 
