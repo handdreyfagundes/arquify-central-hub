@@ -191,9 +191,9 @@ const RevisionFilesPopup = ({
     <>
       <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
         <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
-          <DialogHeader>
-          <DialogTitle className="text-base">
-              {revisionLabel} – {parentName}
+          <DialogHeader className="bg-primary rounded-lg px-4 py-3 -mx-2 -mt-1">
+            <DialogTitle className="text-base text-primary-foreground font-semibold uppercase tracking-wide">
+              {revisionLabel}  {parentName.toUpperCase()}
             </DialogTitle>
           </DialogHeader>
 
