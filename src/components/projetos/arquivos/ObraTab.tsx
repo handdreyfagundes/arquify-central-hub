@@ -1000,7 +1000,7 @@ const ObraTab = ({ projetoId, workspaceId }: ObraTabProps) => {
       {/*  LEVANTAMENTO SECTION                                         */}
       {/* ============================================================ */}
 
-      <section>
+      {showLevantamento && <section>
         <button
           className="flex items-center gap-2 mb-3 w-full text-left group"
           onClick={() => setLevantamentoOpen((v) => !v)}
