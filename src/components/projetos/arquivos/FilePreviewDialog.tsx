@@ -16,9 +16,16 @@ interface FilePreviewDialogProps {
 
 const IMAGE_EXTS = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
 const PDF_EXTS = ["pdf"];
+const OFFICE_EXTS = ["doc", "docx", "xls", "xlsx", "ppt", "pptx"];
+const IFRAME_EXTS = [...PDF_EXTS, ...OFFICE_EXTS, "dwg"];
 
 function getExt(name: string) {
   return name.split(".").pop()?.toLowerCase() || "";
+}
+
+export function canPreviewFile(fileName: string) {
+  const ext = getExt(fileName);
+  return IMAGE_EXTS.includes(ext) || IFRAME_EXTS.includes(ext);
 }
 
 const FilePreviewDialog = ({
@@ -34,7 +41,7 @@ const FilePreviewDialog = ({
   const ext = getExt(fileName);
   const isImage = IMAGE_EXTS.includes(ext);
   const isPdf = PDF_EXTS.includes(ext);
-  const canPreview = isImage || isPdf;
+  const isOffice = OFFICE_EXTS.includes(ext) || ext === "dwg";
 
   const hasPrev = files && currentIndex !== undefined && currentIndex > 0;
   const hasNext = files && currentIndex !== undefined && currentIndex < files.length - 1;
@@ -42,7 +49,6 @@ const FilePreviewDialog = ({
   const handleZoomIn = () => setZoom((z) => Math.min(z + 0.25, 3));
   const handleZoomOut = () => setZoom((z) => Math.max(z - 0.25, 0.5));
 
-  // Reset zoom on file change
   const handleOpenChange = (v: boolean) => {
     if (!v) {
       setZoom(1);
@@ -50,7 +56,12 @@ const FilePreviewDialog = ({
     }
   };
 
-  if (!canPreview) return null;
+  if (!isImage && !isPdf && !isOffice) return null;
+
+  // Google Docs Viewer for Office/DWG files
+  const viewerUrl = isOffice
+    ? `https://docs.google.com/gview?url=${encodeURIComponent(fileUrl)}&embedded=true`
+    : fileUrl;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -81,7 +92,6 @@ const FilePreviewDialog = ({
 
         {/* Content */}
         <div className="flex items-center justify-center min-h-[60vh] max-h-[80vh] overflow-auto relative">
-          {/* Navigation arrows */}
           {hasPrev && (
             <Button
               variant="ghost"
@@ -112,11 +122,11 @@ const FilePreviewDialog = ({
               draggable={false}
             />
           )}
-          {isPdf && (
+          {(isPdf || isOffice) && (
             <iframe
-              src={fileUrl}
+              src={viewerUrl}
               title={fileName}
-              className="w-[85vw] h-[78vh] border-none"
+              className="w-[85vw] h-[78vh] border-none bg-white"
             />
           )}
         </div>
