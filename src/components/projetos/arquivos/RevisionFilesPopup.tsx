@@ -259,42 +259,62 @@ const RevisionFilesPopup = ({
             </DropdownMenu>
           </div>
 
-          {/* Select all + bulk actions */}
+          {/* Select toggle + bulk actions */}
           {filtered.length > 0 && (
             <div className="flex items-center justify-between gap-2 px-1">
-              <label className="flex items-center gap-2 cursor-pointer text-xs text-muted-foreground">
+              <Button
+                variant={selectMode ? "secondary" : "outline"}
+                size="sm"
+                className="h-7 text-xs gap-1.5"
+                onClick={() => {
+                  setSelectMode((prev) => {
+                    if (prev) setSelected(new Set());
+                    return !prev;
+                  });
+                }}
+              >
                 <Checkbox
-                  checked={allSelected}
-                  onCheckedChange={toggleSelectAll}
+                  checked={selectMode && allSelected}
+                  onCheckedChange={(checked) => {
+                    if (!selectMode) {
+                      setSelectMode(true);
+                      setSelected(new Set(filtered.map((f) => f.id)));
+                    } else {
+                      toggleSelectAll();
+                    }
+                  }}
+                  onClick={(e) => e.stopPropagation()}
                   className="size-3.5"
                 />
-                Selecionar todos
-              </label>
-              <div className="flex items-center gap-1.5">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs gap-1.5"
-                  disabled={!someSelected || downloading}
-                  onClick={() => {
-                    const toDownload = filtered.filter((f) => selected.has(f.id));
-                    downloadAsZip(toDownload, `${revisionLabel}_${parentName}.zip`);
-                  }}
-                >
-                  <PackageOpen className="size-3" />
-                  Baixar selecionados (.zip)
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs gap-1.5"
-                  disabled={downloading}
-                  onClick={() => downloadAsZip(filtered, `${revisionLabel}_${parentName}_todos.zip`)}
-                >
-                  <Download className="size-3" />
-                  Baixar todos (.zip)
-                </Button>
-              </div>
+                Selecionar
+              </Button>
+              {selectMode && (
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs gap-1.5"
+                    disabled={!someSelected || downloading}
+                    onClick={() => {
+                      const toDownload = filtered.filter((f) => selected.has(f.id));
+                      downloadAsZip(toDownload, `${revisionLabel}_${parentName}.zip`);
+                    }}
+                  >
+                    <PackageOpen className="size-3" />
+                    Baixar selecionados (.zip)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs gap-1.5"
+                    disabled={downloading}
+                    onClick={() => downloadAsZip(filtered, `${revisionLabel}_${parentName}_todos.zip`)}
+                  >
+                    <Download className="size-3" />
+                    Baixar todos (.zip)
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
