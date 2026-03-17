@@ -329,7 +329,8 @@ export default function CronogramaTab({ projetoId }: Props) {
   ) => {
     try {
       const existingRevs = revisoesMap[subId] || [];
-      const numero = existingRevs.length + 1;
+      const maxNum = existingRevs.reduce((max, r) => Math.max(max, r.numero_revisao), 0);
+      const numero = maxNum + 1;
       const newDelivery = toDateString(
         addDays(parseLocalDate(rev.data_solicitacao), rev.prazo_dias, countType)
       );
