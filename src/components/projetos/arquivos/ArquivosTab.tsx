@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { Plus, X } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Plus, X, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -29,6 +29,9 @@ const ArquivosTab = ({ projetoId }: ArquivosTabProps) => {
   const [showAddTab, setShowAddTab] = useState(false);
   const [newTabName, setNewTabName] = useState("");
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+  const [renamingIndex, setRenamingIndex] = useState<number | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const renameInputRef = useRef<HTMLInputElement>(null);
 
   // Cronograma data
   const [etapas, setEtapas] = useState<Etapa[]>([]);
@@ -39,7 +42,6 @@ const ArquivosTab = ({ projetoId }: ArquivosTabProps) => {
 
   const allTabs = [...DEFAULT_TABS, ...customTabs];
 
-  // Fetch workspace_id from profile
   useEffect(() => {
     (async () => {
       const { data: userData } = await supabase.auth.getUser();
@@ -96,7 +98,6 @@ const ArquivosTab = ({ projetoId }: ArquivosTabProps) => {
     loadCronograma();
   }, [loadCronograma]);
 
-  // Load custom tabs from localStorage
   useEffect(() => {
     const stored = localStorage.getItem(`arquify-custom-tabs-${projetoId}`);
     if (stored) {
@@ -123,6 +124,27 @@ const ArquivosTab = ({ projetoId }: ArquivosTabProps) => {
     if (activeTab === name) setActiveTab("Projeto");
   };
 
+  const startRename = (index: number) => {
+    setRenamingIndex(index);
+    setRenameValue(customTabs[index]);
+    setTimeout(() => renameInputRef.current?.focus(), 50);
+  };
+
+  const commitRename = () => {
+    if (renamingIndex === null) return;
+    const trimmed = renameValue.trim();
+    const oldName = customTabs[renamingIndex];
+    if (!trimmed || (trimmed !== oldName && allTabs.includes(trimmed))) {
+      setRenamingIndex(null);
+      return;
+    }
+    const updated = [...customTabs];
+    updated[renamingIndex] = trimmed;
+    saveCustomTabs(updated);
+    if (activeTab === oldName) setActiveTab(trimmed);
+    setRenamingIndex(null);
+  };
+
   if (!workspaceId) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -135,25 +157,52 @@ const ArquivosTab = ({ projetoId }: ArquivosTabProps) => {
     <div className="space-y-4">
       {/* Sub-tabs */}
       <div className="flex items-center gap-1 border-b border-border pb-0">
-        {allTabs.map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`relative flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors rounded-t-lg ${
-              activeTab === tab
-                ? "bg-accent text-primary border-b-2 border-primary"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-            }`}
-          >
-            {tab}
-            {customTabs.includes(tab) && (
-              <X
-                className="size-3 opacity-50 hover:opacity-100 cursor-pointer"
-                onClick={(e) => { e.stopPropagation(); handleRemoveTab(tab); }}
-              />
-            )}
-          </button>
-        ))}
+        {allTabs.map((tab) => {
+          const customIndex = customTabs.indexOf(tab);
+          const isCustom = customIndex !== -1;
+          const isRenaming = isCustom && renamingIndex === customIndex;
+
+          return (
+            <button
+              key={tab}
+              onClick={() => !isRenaming && setActiveTab(tab)}
+              className={`relative flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors rounded-t-lg group ${
+                activeTab === tab
+                  ? "bg-accent text-primary border-b-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}
+            >
+              {isRenaming ? (
+                <input
+                  ref={renameInputRef}
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onBlur={commitRename}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") commitRename();
+                    if (e.key === "Escape") setRenamingIndex(null);
+                  }}
+                  className="w-20 bg-transparent border-b border-primary outline-none text-sm font-medium text-foreground"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                tab
+              )}
+              {isCustom && !isRenaming && (
+                <>
+                  <Pencil
+                    className="size-3 opacity-0 group-hover:opacity-50 hover:!opacity-100 cursor-pointer transition-opacity"
+                    onClick={(e) => { e.stopPropagation(); startRename(customIndex); }}
+                  />
+                  <X
+                    className="size-3 opacity-0 group-hover:opacity-50 hover:!opacity-100 cursor-pointer transition-opacity"
+                    onClick={(e) => { e.stopPropagation(); handleRemoveTab(tab); }}
+                  />
+                </>
+              )}
+            </button>
+          );
+        })}
         <button
           onClick={() => setShowAddTab(true)}
           className="flex items-center justify-center size-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
