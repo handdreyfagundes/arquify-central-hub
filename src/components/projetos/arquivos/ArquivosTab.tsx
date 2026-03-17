@@ -229,6 +229,11 @@ const ArquivosTab = ({ projetoId }: ArquivosTabProps) => {
           projetoId={projetoId}
           workspaceId={workspaceId}
         />
+      ) : activeTab === "Obra" ? (
+        <ObraTab
+          projetoId={projetoId}
+          workspaceId={workspaceId}
+        />
       ) : (
         <GenericFileTab
           projetoId={projetoId}
