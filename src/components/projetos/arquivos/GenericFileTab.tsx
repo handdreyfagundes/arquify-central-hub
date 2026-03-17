@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import FilePreviewDialog from "./FilePreviewDialog";
+import FilePreviewDialog, { canPreviewFile, isPdfFile } from "./FilePreviewDialog";
+import PdfThumbnail from "./PdfThumbnail";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -30,6 +31,10 @@ import {
   FileArchive,
   File,
   PackageOpen,
+  Eye,
+  LayoutList,
+  Grid2x2,
+  Grid3x3,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -53,21 +58,31 @@ const ACCEPTED_FORMATS =
   ".pdf,.dwg,.skp,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.zip";
 
 type SortMode = "date" | "alpha" | "extension";
+type ViewMode = "list" | "small" | "medium" | "large";
+
+const IMAGE_EXTS = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
 
 function getFileExtension(name: string) {
   const parts = name.split(".");
   return parts.length > 1 ? parts.pop()!.toLowerCase() : "";
 }
 
-function getFileIcon(ext: string) {
-  if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext))
-    return <FileImage className="size-4 text-emerald-500" />;
+function getFileIcon(ext: string, size = "size-4") {
+  if (IMAGE_EXTS.includes(ext))
+    return <FileImage className={`${size} text-emerald-500`} />;
   if (["pdf", "doc", "docx"].includes(ext))
-    return <FileText className="size-4 text-red-500" />;
+    return <FileText className={`${size} text-red-500`} />;
   if (["zip", "rar", "7z"].includes(ext))
-    return <FileArchive className="size-4 text-amber-500" />;
-  return <File className="size-4 text-muted-foreground" />;
+    return <FileArchive className={`${size} text-amber-500`} />;
+  return <File className={`${size} text-muted-foreground`} />;
 }
+
+const VIEW_OPTIONS: { mode: ViewMode; label: string; icon: React.ReactNode }[] = [
+  { mode: "list", label: "Lista", icon: <LayoutList className="size-4" /> },
+  { mode: "small", label: "Ícones pequenos", icon: <Grid3x3 className="size-4" /> },
+  { mode: "medium", label: "Ícones médios", icon: <Grid2x2 className="size-4" /> },
+  { mode: "large", label: "Ícones grandes", icon: <Grid2x2 className="size-5" /> },
+];
 
 const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps) => {
   const { toast } = useToast();
@@ -77,14 +92,12 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
   const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("date");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [deleteTarget, setDeleteTarget] = useState<ArquivoRow | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
   const { downloading, downloadAsZip } = useZipDownload();
-
-  const IMAGE_EXTS_G = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
-  const PDF_EXTS_G = ["pdf"];
 
   const abaKey = tabName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_");
 
@@ -173,10 +186,7 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
   }, [files, search, sortMode]);
 
   const previewableFiles = useMemo(
-    () => filtered.filter((f) => {
-      const e = getFileExtension(f.nome);
-      return IMAGE_EXTS_G.includes(e) || PDF_EXTS_G.includes(e);
-    }),
+    () => filtered.filter((f) => canPreviewFile(f.nome)),
     [filtered]
   );
 
@@ -199,6 +209,88 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
 
   const allSelected = filtered.length > 0 && selected.size === filtered.length;
   const someSelected = selected.size > 0;
+
+  const renderGrid = () => {
+    const gridClass =
+      viewMode === "small"
+        ? "grid-cols-6 sm:grid-cols-8 md:grid-cols-10"
+        : viewMode === "medium"
+        ? "grid-cols-3 sm:grid-cols-4 md:grid-cols-6"
+        : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4";
+
+    const iconSize = viewMode === "small" ? "size-6" : viewMode === "medium" ? "size-10" : "size-16";
+    const thumbSize = viewMode === "small" ? "h-16" : viewMode === "medium" ? "h-28" : "h-44";
+
+    return (
+      <div className={`grid ${gridClass} gap-2`}>
+        {filtered.map((file) => {
+          const ext = getFileExtension(file.nome);
+          const isImage = IMAGE_EXTS.includes(ext);
+          const isPdf = isPdfFile(file.nome);
+          const isPreviewable = canPreviewFile(file.nome);
+          const pIdx = previewableFiles.findIndex((f) => f.id === file.id);
+
+          return (
+            <div
+              key={file.id}
+              className={`group relative flex flex-col items-center border border-border rounded-lg p-2 hover:bg-muted/30 transition-colors ${isPreviewable ? "cursor-pointer" : ""}`}
+              onClick={() => isPreviewable && pIdx !== -1 && setPreviewIndex(pIdx)}
+            >
+              {selectMode && (
+                <div className="absolute top-1 left-1 z-10">
+                  <Checkbox
+                    checked={selected.has(file.id)}
+                    onCheckedChange={() => toggleSelect(file.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="size-3.5"
+                  />
+                </div>
+              )}
+              {isImage ? (
+                <img
+                  src={file.file_url}
+                  alt={file.nome}
+                  className={`${thumbSize} w-full object-cover rounded`}
+                  loading="lazy"
+                />
+              ) : isPdf ? (
+                <PdfThumbnail
+                  fileUrl={file.file_url}
+                  className={`${thumbSize} w-full overflow-hidden`}
+                />
+              ) : (
+                <div className={`${thumbSize} w-full flex items-center justify-center bg-muted/30 rounded`}>
+                  {getFileIcon(ext, iconSize)}
+                </div>
+              )}
+              <p className="text-[11px] text-foreground truncate w-full text-center mt-1 font-medium">
+                {file.nome}
+              </p>
+              {/* Hover actions */}
+              <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="size-6"
+                  onClick={(e) => { e.stopPropagation(); window.open(file.file_url, "_blank"); }}
+                >
+                  <Download className="size-3" />
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="size-6 text-destructive hover:text-destructive"
+                  onClick={(e) => { e.stopPropagation(); setDeleteTarget(file); }}
+                >
+                  <Trash2 className="size-3" />
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-3">
@@ -231,6 +323,28 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {/* View mode */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" className="size-8">
+              <Eye className="size-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {VIEW_OPTIONS.map((opt) => (
+              <DropdownMenuItem
+                key={opt.mode}
+                onClick={() => setViewMode(opt.mode)}
+                className={viewMode === opt.mode ? "font-semibold" : ""}
+              >
+                <span className="mr-2">{opt.icon}</span>
+                {opt.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <input ref={fileInputRef} type="file" accept={ACCEPTED_FORMATS} multiple className="hidden" onChange={handleUpload} />
         <Button size="sm" className="gap-1.5" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
           <Plus className="size-3.5" />
@@ -254,7 +368,7 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
           >
             <Checkbox
               checked={selectMode && allSelected}
-              onCheckedChange={(checked) => {
+              onCheckedChange={() => {
                 if (!selectMode) {
                   setSelectMode(true);
                   setSelected(new Set(filtered.map((f) => f.id)));
@@ -297,7 +411,7 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
         </div>
       )}
 
-      {/* File list */}
+      {/* File list / grid */}
       {loading ? (
         <div className="flex justify-center py-12">
           <div className="size-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -306,11 +420,11 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
         <div className="text-center py-12 text-muted-foreground text-sm">
           {search ? "Nenhum arquivo encontrado." : "Nenhum arquivo nesta aba."}
         </div>
-      ) : (
+      ) : viewMode === "list" ? (
         <div className="space-y-1">
           {filtered.map((file) => {
             const ext = getFileExtension(file.nome);
-            const isPreviewable = IMAGE_EXTS_G.includes(ext) || PDF_EXTS_G.includes(ext);
+            const isPreviewable = canPreviewFile(file.nome);
             const pIdx = previewableFiles.findIndex((f) => f.id === file.id);
             return (
               <div
@@ -349,6 +463,8 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
             );
           })}
         </div>
+      ) : (
+        renderGrid()
       )}
 
       {/* Delete confirmation */}
