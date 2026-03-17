@@ -16,7 +16,7 @@ import {
   Grid2x2,
   Grid3x3,
   Pencil,
-  SortAsc,
+  ArrowUpDown,
   SortDesc,
   Filter,
 } from "lucide-react";
