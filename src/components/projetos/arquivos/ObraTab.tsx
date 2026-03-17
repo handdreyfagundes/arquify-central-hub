@@ -1078,8 +1078,8 @@ const ObraTab = ({ projetoId, workspaceId }: ObraTabProps) => {
               </p>
             ) : (
               <div className="space-y-5">
-                {visitas.map((visita) => {
-                  const vFiles = sortFiles(visitaFilesMap[visita.id] || []);
+                {sortedVisitas.map((visita) => {
+                  const vFiles = visitaFilesMap[visita.id] || [];
                   const visitLabel = `Visita ${String(visita.numero_visita).padStart(2, "0")}`;
                   const visitDateLabel = new Date(visita.data_visita + "T00:00:00").toLocaleDateString("pt-BR");
                   const isVisitaOpen = visitaOpenMap[visita.id] !== false;
