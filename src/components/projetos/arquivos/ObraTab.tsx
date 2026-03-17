@@ -133,6 +133,7 @@ interface MediaGridProps {
   onPreview: (idx: number) => void;
   onDelete: (file: ArquivoRow) => void;
   previewableFiles: ArquivoRow[];
+  viewMode: ViewMode;
 }
 
 const MediaGrid = ({
@@ -143,6 +144,7 @@ const MediaGrid = ({
   onPreview,
   onDelete,
   previewableFiles,
+  viewMode,
 }: MediaGridProps) => {
   if (files.length === 0)
     return (
@@ -151,8 +153,78 @@ const MediaGrid = ({
       </p>
     );
 
+  if (viewMode === "list") {
+    return (
+      <div className="space-y-1">
+        {files.map((file) => {
+          const isPreviewable = canPreviewFile(file.nome);
+          const pIdx = previewableFiles.findIndex((f) => f.id === file.id);
+          const ext = getFileExt(file.nome).toUpperCase();
+          const dateStr = new Date(file.created_at).toLocaleDateString("pt-BR");
+
+          return (
+            <div
+              key={file.id}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group",
+                isPreviewable && !editMode && "cursor-pointer"
+              )}
+              onClick={() => {
+                if (editMode) onToggleSelect(file.id);
+                else if (isPreviewable && pIdx !== -1) onPreview(pIdx);
+              }}
+            >
+              {editMode && (
+                <Checkbox
+                  checked={selected.has(file.id)}
+                  onCheckedChange={() => onToggleSelect(file.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="size-3.5 shrink-0"
+                />
+              )}
+              <div className="size-10 rounded overflow-hidden shrink-0 bg-muted/30">
+                {isVideoFile(file.nome) ? (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Play className="size-4 text-muted-foreground" />
+                  </div>
+                ) : (
+                  <img src={file.file_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground">
+                  {ext} · {dateStr}
+                </p>
+              </div>
+              {!editMode && (
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 text-destructive hover:text-destructive"
+                    onClick={(e) => { e.stopPropagation(); onDelete(file); }}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Grid modes
+  const gridClass =
+    viewMode === "small"
+      ? "grid-cols-4 sm:grid-cols-6 md:grid-cols-8"
+      : viewMode === "medium"
+      ? "grid-cols-3 sm:grid-cols-4 md:grid-cols-6"
+      : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4";
+
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+    <div className={`grid ${gridClass} gap-2`}>
       {files.map((file) => {
         const isVideo = isVideoFile(file.nome);
         const isPreviewable = canPreviewFile(file.nome);
@@ -192,7 +264,7 @@ const MediaGrid = ({
             ) : (
               <img
                 src={file.file_url}
-                alt={file.nome}
+                alt=""
                 className="w-full h-full object-cover"
                 loading="lazy"
               />
@@ -226,11 +298,6 @@ const MediaGrid = ({
                 </Button>
               </div>
             )}
-
-            {/* File name overlay */}
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-1.5 pt-4">
-              <p className="text-[10px] text-white truncate font-medium">{file.nome}</p>
-            </div>
           </div>
         );
       })}
