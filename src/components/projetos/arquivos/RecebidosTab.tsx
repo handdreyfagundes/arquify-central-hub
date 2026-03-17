@@ -58,6 +58,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import FilePreviewDialog, { canPreviewFile, isPdfFile } from "./FilePreviewDialog";
+import PdfThumbnail from "./PdfThumbnail";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -576,15 +577,10 @@ const RecebidosTab = ({ projetoId, workspaceId }: RecebidosTabProps) => {
                   loading="lazy"
                 />
               ) : isPdf ? (
-                <div className={`${thumbSize} w-full rounded overflow-hidden relative bg-white`}>
-                  <iframe
-                    src={`${file.file_url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-                    title={file.nome}
-                    className="w-[200%] h-[200%] border-none pointer-events-none origin-top-left scale-50"
-                    loading="lazy"
-                    tabIndex={-1}
-                  />
-                </div>
+                <PdfThumbnail
+                  fileUrl={file.file_url}
+                  className={`${thumbSize} w-full overflow-hidden`}
+                />
               ) : (
                 <div className={`${thumbSize} w-full flex items-center justify-center bg-muted/30 rounded`}>
                   {getFileIcon(ext, iconSize)}
