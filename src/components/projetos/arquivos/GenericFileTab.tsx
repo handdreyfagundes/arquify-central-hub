@@ -225,7 +225,14 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
           {filtered.map((file) => {
             const ext = getFileExtension(file.nome);
             return (
-              <div key={file.id} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group">
+              const isPreviewable = IMAGE_EXTS_G.includes(ext) || PDF_EXTS_G.includes(ext);
+              const pIdx = previewableFiles.findIndex((f) => f.id === file.id);
+              return (
+              <div
+                key={file.id}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group ${isPreviewable ? "cursor-pointer" : ""}`}
+                onClick={() => isPreviewable && pIdx !== -1 && setPreviewIndex(pIdx)}
+              >
                 {getFileIcon(ext)}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate text-foreground">{file.nome}</p>
