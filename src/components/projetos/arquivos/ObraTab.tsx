@@ -10,6 +10,11 @@ import {
   X,
   Calendar,
   Play,
+  ChevronDown,
+  Eye,
+  LayoutList,
+  Grid2x2,
+  Grid3x3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
