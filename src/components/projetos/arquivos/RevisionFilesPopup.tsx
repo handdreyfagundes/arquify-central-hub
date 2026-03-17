@@ -338,12 +338,14 @@ const RevisionFilesPopup = ({
                     key={file.id}
                     className={`flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group ${isPreviewable ? "cursor-pointer" : ""}`}
                   >
-                    <Checkbox
-                      checked={selected.has(file.id)}
-                      onCheckedChange={() => toggleSelect(file.id)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="size-3.5 shrink-0"
-                    />
+                    {selectMode && (
+                      <Checkbox
+                        checked={selected.has(file.id)}
+                        onCheckedChange={() => toggleSelect(file.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="size-3.5 shrink-0"
+                      />
+                    )}
                     <div
                       className="flex items-center gap-3 flex-1 min-w-0"
                       onClick={() => isPreviewable && pIdx !== -1 && setPreviewIndex(pIdx)}
