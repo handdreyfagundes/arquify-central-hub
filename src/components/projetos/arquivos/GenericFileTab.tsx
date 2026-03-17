@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import FilePreviewDialog from "./FilePreviewDialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,9 +29,11 @@ import {
   FileImage,
   FileArchive,
   File,
+  PackageOpen,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useZipDownload } from "./useZipDownload";
 
 interface ArquivoRow {
   id: string;
@@ -76,6 +79,8 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
   const [sortMode, setSortMode] = useState<SortMode>("date");
   const [deleteTarget, setDeleteTarget] = useState<ArquivoRow | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const { downloading, downloadAsZip } = useZipDownload();
 
   const IMAGE_EXTS_G = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
   const PDF_EXTS_G = ["pdf"];
@@ -93,6 +98,7 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
       .order("created_at", { ascending: false });
 
     if (!error) setFiles((data as ArquivoRow[]) ?? []);
+    setSelected(new Set());
     setLoading(false);
   };
 
@@ -101,14 +107,14 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
   }, [projetoId, abaKey]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files;
-    if (!selected?.length) return;
+    const sel = e.target.files;
+    if (!sel?.length) return;
 
     setUploading(true);
     const { data: userData } = await supabase.auth.getUser();
     const userId = userData?.user?.id;
 
-    for (const file of Array.from(selected)) {
+    for (const file of Array.from(sel)) {
       const storagePath = `${projetoId}/${abaKey}/${Date.now()}_${file.name}`;
       const { error: uploadErr } = await supabase.storage
         .from("project-files")
@@ -173,6 +179,26 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
     [filtered]
   );
 
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === filtered.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(filtered.map((f) => f.id)));
+    }
+  };
+
+  const allSelected = filtered.length > 0 && selected.size === filtered.length;
+  const someSelected = selected.size > 0;
+
   return (
     <div className="space-y-3">
       {/* Toolbar */}
@@ -211,6 +237,45 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
         </Button>
       </div>
 
+      {/* Select all + bulk actions */}
+      {filtered.length > 0 && (
+        <div className="flex items-center justify-between gap-2 px-1">
+          <label className="flex items-center gap-2 cursor-pointer text-xs text-muted-foreground">
+            <Checkbox
+              checked={allSelected}
+              onCheckedChange={toggleSelectAll}
+              className="size-3.5"
+            />
+            Selecionar todos
+          </label>
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1.5"
+              disabled={!someSelected || downloading}
+              onClick={() => {
+                const toDownload = filtered.filter((f) => selected.has(f.id));
+                downloadAsZip(toDownload, `${tabName}.zip`);
+              }}
+            >
+              <PackageOpen className="size-3" />
+              Baixar selecionados (.zip)
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1.5"
+              disabled={downloading}
+              onClick={() => downloadAsZip(filtered, `${tabName}_todos.zip`)}
+            >
+              <Download className="size-3" />
+              Baixar todos (.zip)
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* File list */}
       {loading ? (
         <div className="flex justify-center py-12">
@@ -230,20 +295,30 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
               <div
                 key={file.id}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group ${isPreviewable ? "cursor-pointer" : ""}`}
-                onClick={() => isPreviewable && pIdx !== -1 && setPreviewIndex(pIdx)}
               >
-                {getFileIcon(ext)}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate text-foreground">{file.nome}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {ext.toUpperCase()} · {new Date(file.created_at).toLocaleDateString("pt-BR")}
-                  </p>
+                <Checkbox
+                  checked={selected.has(file.id)}
+                  onCheckedChange={() => toggleSelect(file.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="size-3.5 shrink-0"
+                />
+                <div
+                  className="flex items-center gap-3 flex-1 min-w-0"
+                  onClick={() => isPreviewable && pIdx !== -1 && setPreviewIndex(pIdx)}
+                >
+                  {getFileIcon(ext)}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate text-foreground">{file.nome}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {ext.toUpperCase()} · {new Date(file.created_at).toLocaleDateString("pt-BR")}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button variant="ghost" size="icon" className="size-7" onClick={() => window.open(file.file_url, "_blank")}>
+                  <Button variant="ghost" size="icon" className="size-7" onClick={(e) => { e.stopPropagation(); window.open(file.file_url, "_blank"); }}>
                     <Download className="size-3.5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="size-7 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(file)}>
+                  <Button variant="ghost" size="icon" className="size-7 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(file); }}>
                     <Trash2 className="size-3.5" />
                   </Button>
                 </div>
