@@ -1035,7 +1035,7 @@ const ObraTab = ({ projetoId, workspaceId }: ObraTabProps) => {
             onDrop={(e) => handleDrop(e, "levantamento")}
           >
             <MediaGrid
-              files={sortedLevFiles}
+              files={levantamentoFiles}
               editMode={editMode}
               selected={selected}
               onToggleSelect={toggleSelect}
