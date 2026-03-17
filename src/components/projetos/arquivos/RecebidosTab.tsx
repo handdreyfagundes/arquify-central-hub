@@ -447,11 +447,7 @@ const RecebidosTab = ({ projetoId, workspaceId }: RecebidosTabProps) => {
 
   // Previewable files across all sections
   const allPreviewable = useMemo(
-    () =>
-      files.filter((f) => {
-        const e = getFileExtension(f.nome);
-        return IMAGE_EXTS.includes(e) || PDF_EXTS.includes(e);
-      }),
+    () => files.filter((f) => canPreviewFile(f.nome)),
     [files]
   );
 
