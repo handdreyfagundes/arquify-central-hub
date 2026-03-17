@@ -146,7 +146,7 @@ const RecebidosTab = ({ projetoId, workspaceId }: RecebidosTabProps) => {
   const [uploadSection, setUploadSection] = useState<string>("");
 
   // --- UI state ---
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [viewMode, setViewMode] = useState<ViewMode>("small");
   const [sortDir, setSortDir] = useState<SortDir>("newest");
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<string>("");

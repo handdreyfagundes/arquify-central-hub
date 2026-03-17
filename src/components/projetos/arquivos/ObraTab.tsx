@@ -346,7 +346,7 @@ const ObraTab = ({ projetoId, workspaceId }: ObraTabProps) => {
   const [filterRangeTo, setFilterRangeTo] = useState<Date | undefined>();
 
   // -- View mode --
-  const [viewMode, setViewMode] = useState<ViewMode>("medium");
+  const [viewMode, setViewMode] = useState<ViewMode>("small");
 
   // -- Collapsible --
   const [levantamentoOpen, setLevantamentoOpen] = useState(true);

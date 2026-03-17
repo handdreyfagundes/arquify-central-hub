@@ -163,7 +163,7 @@ const GenericFileTab = ({ projetoId, workspaceId, tabId, tabName }: GenericFileT
   // -- UI --
   const [search, setSearch] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [viewMode, setViewMode] = useState<ViewMode>("small");
   const [deleteTarget, setDeleteTarget] = useState<ArquivoRow | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
