@@ -75,6 +75,10 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
   const [search, setSearch] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("date");
   const [deleteTarget, setDeleteTarget] = useState<ArquivoRow | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+
+  const IMAGE_EXTS_G = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
+  const PDF_EXTS_G = ["pdf"];
 
   const abaKey = tabName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_");
 
