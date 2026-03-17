@@ -9,6 +9,7 @@ import { listSubetapasByEtapa, listRevisoesBySubetapa, listRevisoesByEtapa } fro
 import type { Subetapa, Revisao } from "@/services/subetapas";
 import ProjetoSubTab from "./ProjetoSubTab";
 import GenericFileTab from "./GenericFileTab";
+import RecebidosTab from "./RecebidosTab";
 
 interface Etapa {
   id: string;
