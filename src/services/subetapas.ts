@@ -19,6 +19,7 @@ export interface Revisao {
   prazo_dias: number;
   data_nova_entrega: string | null;
   observacoes: string | null;
+  approval_status: string | null;
   created_at: string;
 }
 
