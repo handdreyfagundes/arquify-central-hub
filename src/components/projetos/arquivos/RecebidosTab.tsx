@@ -586,6 +586,11 @@ const RecebidosTab = ({ projetoId, workspaceId }: RecebidosTabProps) => {
               <p className="text-[11px] text-foreground truncate w-full text-center mt-1 font-medium">
                 {file.nome}
               </p>
+              {fileTypeMap[file.id] && (
+                <span className="text-[9px] bg-muted text-muted-foreground rounded px-1.5 py-0.5 mt-0.5 truncate max-w-full">
+                  {fileTypeMap[file.id]}
+                </span>
+              )}
               {/* Hover actions */}
               <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 <Button
