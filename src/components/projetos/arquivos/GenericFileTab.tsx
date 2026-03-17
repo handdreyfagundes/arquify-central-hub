@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import FilePreviewDialog from "./FilePreviewDialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
