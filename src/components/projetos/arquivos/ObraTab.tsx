@@ -255,24 +255,51 @@ const ObraTab = ({ projetoId, workspaceId }: ObraTabProps) => {
   const [dragOver, setDragOver] = useState<string | null>(null);
 
   /* ---------------------------------------------------------------- */
-  /*  Load levantamento date from Cronograma                           */
+  /*  Load levantamento date from Cronograma (live sync)               */
   /* ---------------------------------------------------------------- */
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const stages = await listEtapasByProjeto(projetoId);
-        const levStage = stages.find(
-          (s) => s.nome.toLowerCase().includes("levantamento")
-        );
-        if (levStage?.data_inicio) {
-          setLevantamentoDate(levStage.data_inicio);
-        } else if (levStage?.data_fim) {
-          setLevantamentoDate(levStage.data_fim);
-        }
-      } catch {}
-    })();
+  const loadLevantamentoDate = useCallback(async () => {
+    try {
+      const stages = await listEtapasByProjeto(projetoId);
+      const levStage = stages.find(
+        (s) => s.nome.toLowerCase().includes("levantamento")
+      );
+      if (levStage?.data_inicio) {
+        setLevantamentoDate(levStage.data_inicio);
+      } else if (levStage?.data_fim) {
+        setLevantamentoDate(levStage.data_fim);
+      } else {
+        setLevantamentoDate(null);
+      }
+    } catch {}
   }, [projetoId]);
+
+  useEffect(() => {
+    loadLevantamentoDate();
+  }, [loadLevantamentoDate]);
+
+  // Realtime subscription for live sync with Cronograma
+  useEffect(() => {
+    const channel = supabase
+      .channel(`obra-levantamento-sync-${projetoId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "etapas",
+          filter: `projeto_id=eq.${projetoId}`,
+        },
+        () => {
+          loadLevantamentoDate();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [projetoId, loadLevantamentoDate]);
 
   /* ---------------------------------------------------------------- */
   /*  Load files & visits                                              */
