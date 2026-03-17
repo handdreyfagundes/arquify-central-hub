@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Circle } from "lucide-react";
+import { ChevronDown, ChevronRight, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -8,6 +8,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import type { Subetapa, Revisao } from "@/services/subetapas";
 import RevisionFilesPopup from "./RevisionFilesPopup";
 
@@ -36,13 +38,15 @@ const ProjetoSubTab = ({
   stageRevisionsMap,
   loading,
 }: ProjetoSubTabProps) => {
+  const { toast } = useToast();
   const [expandedStages, setExpandedStages] = useState<Set<string>>(new Set());
   const [selectedRevision, setSelectedRevision] = useState<{
     revision: Revisao;
     label: string;
     parentName: string;
   } | null>(null);
-  const [approvalLabels, setApprovalLabels] = useState<Record<string, string>>({});
+  // Local mirror of approval_status for optimistic UI
+  const [localApproval, setLocalApproval] = useState<Record<string, string | null>>({});
 
   const toggleStage = (id: string) => {
     setExpandedStages((prev) => {
@@ -51,6 +55,30 @@ const ProjetoSubTab = ({
       else next.add(id);
       return next;
     });
+  };
+
+  const getApproval = (rev: Revisao): string | null => {
+    if (rev.id in localApproval) return localApproval[rev.id];
+    return rev.approval_status ?? null;
+  };
+
+  const handleApprovalChange = async (rev: Revisao, value: string) => {
+    const newStatus = value === "none" ? null : value;
+    setLocalApproval((prev) => ({ ...prev, [rev.id]: newStatus }));
+
+    const { error } = await supabase
+      .from("revisoes")
+      .update({ approval_status: newStatus } as any)
+      .eq("id", rev.id);
+
+    if (error) {
+      toast({ title: "Erro ao salvar status", variant: "destructive" });
+      setLocalApproval((prev) => {
+        const next = { ...prev };
+        delete next[rev.id];
+        return next;
+      });
+    }
   };
 
   const renderRevisions = (revisions: Revisao[], parentName: string) => {
@@ -62,7 +90,7 @@ const ProjetoSubTab = ({
         {revisions.map((rev, idx) => {
           const isLatest = idx === latestIdx;
           const label = `R${String(rev.numero_revisao).padStart(2, "0")}`;
-          const approvalVal = approvalLabels[rev.id] || "none";
+          const approval = getApproval(rev);
 
           return (
             <div key={rev.id} className="flex items-center gap-2 py-0.5">
@@ -78,28 +106,38 @@ const ProjetoSubTab = ({
               >
                 {label}
               </button>
-              {isLatest && (
+
+              {/* Approved state — green label, no dropdown */}
+              {approval === "approved" && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-400 bg-emerald-50 text-emerald-700 gap-1">
+                  <Check className="size-3" />
+                  Aprovado
+                </Badge>
+              )}
+
+              {/* Pending state — yellow label, no dropdown */}
+              {approval === "pending" && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-yellow-400 bg-yellow-50 text-yellow-700">
+                  Pendente aprovação
+                </Badge>
+              )}
+
+              {/* No status yet & is latest — show dropdown */}
+              {isLatest && !approval && (
                 <Select
-                  value={approvalVal}
-                  onValueChange={(val) =>
-                    setApprovalLabels((prev) => ({ ...prev, [rev.id]: val }))
-                  }
+                  value="none"
+                  onValueChange={(val) => handleApprovalChange(rev, val)}
                 >
                   <SelectTrigger className="h-6 w-auto min-w-0 text-[10px] border-dashed px-1.5 gap-1">
                     <SelectValue placeholder="—" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none" className="text-xs">—</SelectItem>
-                    <SelectItem value="pendente_aprovacao" className="text-xs">
+                    <SelectItem value="pending" className="text-xs">
                       Pendente aprovação
                     </SelectItem>
                   </SelectContent>
                 </Select>
-              )}
-              {isLatest && approvalVal === "pendente_aprovacao" && (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-yellow-400 bg-yellow-50 text-yellow-700">
-                  Pendente aprovação
-                </Badge>
               )}
             </div>
           );
@@ -132,7 +170,6 @@ const ProjetoSubTab = ({
           const stageRevs = stageRevisionsMap[etapa.id] || [];
           const hasSubs = subs.length > 0;
 
-          // Stages WITH substages: show substages directly, no stage header
           if (hasSubs) {
             return subs.map((sub) => {
               const revs = revisionsMap[sub.id] || [];
@@ -167,7 +204,6 @@ const ProjetoSubTab = ({
             });
           }
 
-          // Stages WITHOUT substages: show stage header with its revisions
           const expanded = expandedStages.has(etapa.id);
           const hasRevs = stageRevs.length > 0;
           return (
@@ -199,7 +235,6 @@ const ProjetoSubTab = ({
         })}
       </div>
 
-      {/* Revision files popup */}
       {selectedRevision && (
         <RevisionFilesPopup
           open={!!selectedRevision}

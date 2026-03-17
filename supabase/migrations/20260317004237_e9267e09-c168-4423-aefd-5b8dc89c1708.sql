@@ -1,0 +1,1 @@
+ALTER TABLE public.revisoes ADD COLUMN approval_status text DEFAULT NULL;

@@ -716,6 +716,7 @@ export type Database = {
       }
       revisoes: {
         Row: {
+          approval_status: string | null
           created_at: string
           data_nova_entrega: string | null
           data_solicitacao: string
@@ -727,6 +728,7 @@ export type Database = {
           subetapa_id: string | null
         }
         Insert: {
+          approval_status?: string | null
           created_at?: string
           data_nova_entrega?: string | null
           data_solicitacao: string
@@ -738,6 +740,7 @@ export type Database = {
           subetapa_id?: string | null
         }
         Update: {
+          approval_status?: string | null
           created_at?: string
           data_nova_entrega?: string | null
           data_solicitacao?: string
