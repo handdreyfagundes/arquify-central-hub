@@ -748,32 +748,41 @@ const ObraTab = ({ projetoId, workspaceId }: ObraTabProps) => {
   /*  Sort / filter helpers                                            */
   /* ---------------------------------------------------------------- */
 
-  const sortFiles = useCallback(
-    (files: ArquivoRow[]) => {
-      let result = [...files];
-
+  /** Check if a section date passes the active date filter */
+  const sectionDateMatches = useCallback(
+    (sectionDate: string | null): boolean => {
       if (sortMode === "date_specific" && filterDate) {
+        if (!sectionDate) return false;
         const target = format(filterDate, "yyyy-MM-dd");
-        result = result.filter((f) => f.created_at.startsWith(target));
-      } else if (sortMode === "date_range" && filterRangeFrom && filterRangeTo) {
+        return sectionDate.startsWith(target);
+      }
+      if (sortMode === "date_range" && filterRangeFrom && filterRangeTo) {
+        if (!sectionDate) return false;
+        const t = new Date(sectionDate + "T00:00:00").getTime();
         const from = filterRangeFrom.getTime();
         const to = filterRangeTo.getTime() + 86400000;
-        result = result.filter((f) => {
-          const t = new Date(f.created_at).getTime();
-          return t >= from && t < to;
-        });
+        return t >= from && t < to;
       }
-
-      return result.sort((a, b) => {
-        const da = new Date(a.created_at).getTime();
-        const db = new Date(b.created_at).getTime();
-        return sortMode === "oldest" ? da - db : db - da;
-      });
+      return true; // no filter active
     },
     [sortMode, filterDate, filterRangeFrom, filterRangeTo]
   );
 
-  const sortedLevFiles = useMemo(() => sortFiles(levantamentoFiles), [sortFiles, levantamentoFiles]);
+  /** Sort visitas by their visit date according to sortMode */
+  const sortedVisitas = useMemo(() => {
+    let filtered = visitas.filter((v) => sectionDateMatches(v.data_visita));
+    return [...filtered].sort((a, b) => {
+      const da = new Date(a.data_visita + "T00:00:00").getTime();
+      const db = new Date(b.data_visita + "T00:00:00").getTime();
+      return sortMode === "oldest" ? da - db : db - da;
+    });
+  }, [visitas, sortMode, sectionDateMatches]);
+
+  /** Whether levantamento section passes the date filter */
+  const showLevantamento = useMemo(
+    () => sectionDateMatches(levantamentoDate),
+    [sectionDateMatches, levantamentoDate]
+  );
 
   /* ---------------------------------------------------------------- */
   /*  Render                                                           */
