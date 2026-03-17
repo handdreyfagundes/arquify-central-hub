@@ -262,10 +262,13 @@ const RevisionFilesPopup = ({
             ) : (
               filtered.map((file) => {
                 const ext = getFileExtension(file.nome);
+                const isPreviewable = IMAGE_EXTS.includes(ext) || PDF_EXTS.includes(ext);
+                const pIdx = previewableFiles.findIndex((f) => f.id === file.id);
                 return (
                   <div
                     key={file.id}
-                    className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group"
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group ${isPreviewable ? "cursor-pointer" : ""}`}
+                    onClick={() => isPreviewable && pIdx !== -1 && setPreviewIndex(pIdx)}
                   >
                     {getFileIcon(ext)}
                     <span className="text-sm font-medium truncate text-foreground flex-1 min-w-0">
