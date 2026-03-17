@@ -99,6 +99,7 @@ const RevisionFilesPopup = ({
   const [deleteTarget, setDeleteTarget] = useState<ArquivoRow | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectMode, setSelectMode] = useState(false);
   const { downloading, downloadAsZip } = useZipDownload();
 
   const IMAGE_EXTS = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
@@ -258,42 +259,62 @@ const RevisionFilesPopup = ({
             </DropdownMenu>
           </div>
 
-          {/* Select all + bulk actions */}
+          {/* Select toggle + bulk actions */}
           {filtered.length > 0 && (
             <div className="flex items-center justify-between gap-2 px-1">
-              <label className="flex items-center gap-2 cursor-pointer text-xs text-muted-foreground">
+              <Button
+                variant={selectMode ? "secondary" : "outline"}
+                size="sm"
+                className="h-7 text-xs gap-1.5"
+                onClick={() => {
+                  setSelectMode((prev) => {
+                    if (prev) setSelected(new Set());
+                    return !prev;
+                  });
+                }}
+              >
                 <Checkbox
-                  checked={allSelected}
-                  onCheckedChange={toggleSelectAll}
+                  checked={selectMode && allSelected}
+                  onCheckedChange={(checked) => {
+                    if (!selectMode) {
+                      setSelectMode(true);
+                      setSelected(new Set(filtered.map((f) => f.id)));
+                    } else {
+                      toggleSelectAll();
+                    }
+                  }}
+                  onClick={(e) => e.stopPropagation()}
                   className="size-3.5"
                 />
-                Selecionar todos
-              </label>
-              <div className="flex items-center gap-1.5">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs gap-1.5"
-                  disabled={!someSelected || downloading}
-                  onClick={() => {
-                    const toDownload = filtered.filter((f) => selected.has(f.id));
-                    downloadAsZip(toDownload, `${revisionLabel}_${parentName}.zip`);
-                  }}
-                >
-                  <PackageOpen className="size-3" />
-                  Baixar selecionados (.zip)
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs gap-1.5"
-                  disabled={downloading}
-                  onClick={() => downloadAsZip(filtered, `${revisionLabel}_${parentName}_todos.zip`)}
-                >
-                  <Download className="size-3" />
-                  Baixar todos (.zip)
-                </Button>
-              </div>
+                Selecionar
+              </Button>
+              {selectMode && (
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs gap-1.5"
+                    disabled={!someSelected || downloading}
+                    onClick={() => {
+                      const toDownload = filtered.filter((f) => selected.has(f.id));
+                      downloadAsZip(toDownload, `${revisionLabel}_${parentName}.zip`);
+                    }}
+                  >
+                    <PackageOpen className="size-3" />
+                    Baixar selecionados (.zip)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs gap-1.5"
+                    disabled={downloading}
+                    onClick={() => downloadAsZip(filtered, `${revisionLabel}_${parentName}_todos.zip`)}
+                  >
+                    <Download className="size-3" />
+                    Baixar todos (.zip)
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
@@ -317,12 +338,14 @@ const RevisionFilesPopup = ({
                     key={file.id}
                     className={`flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group ${isPreviewable ? "cursor-pointer" : ""}`}
                   >
-                    <Checkbox
-                      checked={selected.has(file.id)}
-                      onCheckedChange={() => toggleSelect(file.id)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="size-3.5 shrink-0"
-                    />
+                    {selectMode && (
+                      <Checkbox
+                        checked={selected.has(file.id)}
+                        onCheckedChange={() => toggleSelect(file.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="size-3.5 shrink-0"
+                      />
+                    )}
                     <div
                       className="flex items-center gap-3 flex-1 min-w-0"
                       onClick={() => isPreviewable && pIdx !== -1 && setPreviewIndex(pIdx)}
