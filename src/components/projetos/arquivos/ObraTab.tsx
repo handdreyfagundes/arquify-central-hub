@@ -277,9 +277,7 @@ const ObraTab = ({ projetoId, workspaceId }: ObraTabProps) => {
       const stages = await listEtapasByProjeto(projetoId);
 
       // 1) Check if there's a main stage named "levantamento"
-      const levStage = stages.find(
-        (s) => s.nome.toLowerCase().includes("levantamento")
-      );
+      const levStage = stages.find((s) => isLevantamentoLabel(s.nome));
       if (levStage) {
         setLevantamentoDate(levStage.data_inicio || levStage.data_fim || null);
         return;
@@ -294,9 +292,7 @@ const ObraTab = ({ projetoId, workspaceId }: ObraTabProps) => {
           .order("ordem");
 
         if (subs) {
-          const levSub = subs.find(
-            (s) => s.nome.toLowerCase().includes("levantamento")
-          );
+          const levSub = subs.find((s) => isLevantamentoLabel(s.nome));
           if (levSub?.data_entrega) {
             setLevantamentoDate(levSub.data_entrega);
             return;
