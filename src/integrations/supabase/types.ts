@@ -493,6 +493,59 @@ export type Database = {
           },
         ]
       }
+      obra_draft_media: {
+        Row: {
+          arquivo_id: string
+          created_at: string
+          id: string
+          projeto_id: string
+          workspace_id: string
+        }
+        Insert: {
+          arquivo_id: string
+          created_at?: string
+          id?: string
+          projeto_id: string
+          workspace_id: string
+        }
+        Update: {
+          arquivo_id?: string
+          created_at?: string
+          id?: string
+          projeto_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "obra_draft_media_arquivo_id_fkey"
+            columns: ["arquivo_id"]
+            isOneToOne: false
+            referencedRelation: "arquivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "obra_draft_media_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "projetos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "obra_draft_media_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "v_rentabilidade_projetos"
+            referencedColumns: ["projeto_id"]
+          },
+          {
+            foreignKeyName: "obra_draft_media_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orcamentos: {
         Row: {
           arquivo_url: string | null
@@ -1066,6 +1119,55 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "user_roles_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visitas_obra: {
+        Row: {
+          created_at: string
+          data_visita: string
+          id: string
+          numero_visita: number
+          projeto_id: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          data_visita?: string
+          id?: string
+          numero_visita?: number
+          projeto_id: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          data_visita?: string
+          id?: string
+          numero_visita?: number
+          projeto_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visitas_obra_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "projetos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitas_obra_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "v_rentabilidade_projetos"
+            referencedColumns: ["projeto_id"]
+          },
+          {
+            foreignKeyName: "visitas_obra_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
