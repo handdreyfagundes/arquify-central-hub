@@ -192,6 +192,14 @@ const RevisionFilesPopup = ({
     });
   }, [files, search, sortMode]);
 
+  const previewableFiles = useMemo(
+    () => filtered.filter((f) => {
+      const e = getFileExtension(f.nome);
+      return IMAGE_EXTS.includes(e) || PDF_EXTS.includes(e);
+    }),
+    [filtered]
+  );
+
   return (
     <>
       <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
