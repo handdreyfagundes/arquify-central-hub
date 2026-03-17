@@ -97,6 +97,15 @@ function isVideoFile(name: string) {
   return VIDEO_EXTS.includes(getFileExt(name));
 }
 
+type ViewMode = "list" | "small" | "medium" | "large";
+
+const VIEW_OPTIONS: { mode: ViewMode; label: string; icon: React.ReactNode }[] = [
+  { mode: "list", label: "Lista", icon: <LayoutList className="size-4" /> },
+  { mode: "small", label: "Ícones pequenos", icon: <Grid3x3 className="size-4" /> },
+  { mode: "medium", label: "Ícones médios", icon: <Grid2x2 className="size-4" /> },
+  { mode: "large", label: "Ícones grandes", icon: <Grid2x2 className="size-5" /> },
+];
+
 type SortMode = "newest" | "oldest" | "date_specific" | "date_range";
 
 function normalizeStageLabel(value: string) {
