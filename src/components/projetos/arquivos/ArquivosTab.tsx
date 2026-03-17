@@ -134,9 +134,11 @@ const ArquivosTab = ({ projetoId }: ArquivosTabProps) => {
     }
     saveCustomTabs([...customTabs, name]);
 
-    // Apply template structure
+    // Apply template structure ONLY (sections + view mode, never files)
     const abaKey = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_");
     localStorage.setItem(`arquify-custom-tab-sections-${projetoId}-${abaKey}`, JSON.stringify(template.sections));
+    // Ensure no file-section mapping carries over — start with empty content
+    localStorage.removeItem(`arquify-custom-tab-file-sections-${projetoId}-${abaKey}`);
 
     setShowAddTab(false);
     setAddStep("choose");
