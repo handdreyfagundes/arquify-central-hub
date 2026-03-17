@@ -99,6 +99,7 @@ const RevisionFilesPopup = ({
   const [deleteTarget, setDeleteTarget] = useState<ArquivoRow | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectMode, setSelectMode] = useState(false);
   const { downloading, downloadAsZip } = useZipDownload();
 
   const IMAGE_EXTS = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
