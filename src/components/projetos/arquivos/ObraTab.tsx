@@ -256,21 +256,42 @@ const ObraTab = ({ projetoId, workspaceId }: ObraTabProps) => {
 
   /* ---------------------------------------------------------------- */
   /*  Load levantamento date from Cronograma (live sync)               */
+  /*  Searches both etapas and subetapas for "levantamento"            */
   /* ---------------------------------------------------------------- */
 
   const loadLevantamentoDate = useCallback(async () => {
     try {
       const stages = await listEtapasByProjeto(projetoId);
+
+      // 1) Check if there's a main stage named "levantamento"
       const levStage = stages.find(
         (s) => s.nome.toLowerCase().includes("levantamento")
       );
-      if (levStage?.data_inicio) {
-        setLevantamentoDate(levStage.data_inicio);
-      } else if (levStage?.data_fim) {
-        setLevantamentoDate(levStage.data_fim);
-      } else {
-        setLevantamentoDate(null);
+      if (levStage) {
+        setLevantamentoDate(levStage.data_inicio || levStage.data_fim || null);
+        return;
       }
+
+      // 2) Otherwise search subetapas across all stages
+      for (const stage of stages) {
+        const { data: subs } = await supabase
+          .from("subetapas")
+          .select("nome, data_entrega")
+          .eq("etapa_id", stage.id)
+          .order("ordem");
+
+        if (subs) {
+          const levSub = subs.find(
+            (s) => s.nome.toLowerCase().includes("levantamento")
+          );
+          if (levSub?.data_entrega) {
+            setLevantamentoDate(levSub.data_entrega);
+            return;
+          }
+        }
+      }
+
+      setLevantamentoDate(null);
     } catch {}
   }, [projetoId]);
 
@@ -278,7 +299,7 @@ const ObraTab = ({ projetoId, workspaceId }: ObraTabProps) => {
     loadLevantamentoDate();
   }, [loadLevantamentoDate]);
 
-  // Realtime subscription for live sync with Cronograma
+  // Realtime subscription for live sync with Cronograma (etapas + subetapas)
   useEffect(() => {
     const channel = supabase
       .channel(`obra-levantamento-sync-${projetoId}`)
@@ -290,9 +311,16 @@ const ObraTab = ({ projetoId, workspaceId }: ObraTabProps) => {
           table: "etapas",
           filter: `projeto_id=eq.${projetoId}`,
         },
-        () => {
-          loadLevantamentoDate();
-        }
+        () => loadLevantamentoDate()
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "subetapas",
+        },
+        () => loadLevantamentoDate()
       )
       .subscribe();
 
