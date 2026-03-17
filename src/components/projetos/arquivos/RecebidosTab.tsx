@@ -471,7 +471,7 @@ const RecebidosTab = ({ projetoId, workspaceId }: RecebidosTabProps) => {
             <tbody>
               {sectionFiles.map((file) => {
                 const ext = getFileExtension(file.nome);
-                const isPreviewable = IMAGE_EXTS.includes(ext) || PDF_EXTS.includes(ext);
+                const isPreviewable = canPreviewFile(file.nome);
                 const pIdx = allPreviewable.findIndex((f) => f.id === file.id);
 
                 return (
