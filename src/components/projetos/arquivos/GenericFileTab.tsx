@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import FilePreviewDialog, { canPreviewFile, isPdfFile } from "./FilePreviewDialog";
 import PdfThumbnail from "./PdfThumbnail";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Plus,
   Search,
   ArrowUpDown,
@@ -35,10 +42,16 @@ import {
   LayoutList,
   Grid2x2,
   Grid3x3,
+  ChevronDown,
+  Pencil,
+  X,
+  Save,
+  Play,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useZipDownload } from "./useZipDownload";
+import { cn } from "@/lib/utils";
 
 interface ArquivoRow {
   id: string;
@@ -55,16 +68,21 @@ interface GenericFileTabProps {
 }
 
 const ACCEPTED_FORMATS =
-  ".pdf,.dwg,.skp,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.zip";
+  ".pdf,.dwg,.skp,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.zip,.mp4,.mov,.webm,.avi";
 
-type SortMode = "date" | "alpha" | "extension";
+type SortMode = "newest" | "oldest" | "alpha" | "extension";
 type ViewMode = "list" | "small" | "medium" | "large";
 
 const IMAGE_EXTS = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
+const VIDEO_EXTS = ["mp4", "webm", "mov", "avi", "mkv"];
 
 function getFileExtension(name: string) {
   const parts = name.split(".");
   return parts.length > 1 ? parts.pop()!.toLowerCase() : "";
+}
+
+function isVideoFile(name: string) {
+  return VIDEO_EXTS.includes(getFileExtension(name));
 }
 
 function getFileIcon(ext: string, size = "size-4") {
@@ -84,14 +102,68 @@ const VIEW_OPTIONS: { mode: ViewMode; label: string; icon: React.ReactNode }[] =
   { mode: "large", label: "Ícones grandes", icon: <Grid2x2 className="size-5" /> },
 ];
 
+/* ------------------------------------------------------------------ */
+/*  Template types                                                      */
+/* ------------------------------------------------------------------ */
+
+export interface TabTemplate {
+  id: string;
+  name: string;
+  sections: string[];
+  viewMode: ViewMode;
+}
+
+const TEMPLATES_STORAGE_KEY = "arquify-tab-templates";
+
+export function loadTabTemplates(): TabTemplate[] {
+  try {
+    const stored = localStorage.getItem(TEMPLATES_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveTabTemplates(templates: TabTemplate[]) {
+  localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(templates));
+}
+
+/* ------------------------------------------------------------------ */
+/*  Section storage helpers                                             */
+/* ------------------------------------------------------------------ */
+
+const SECTIONS_KEY = (pid: string, tab: string) => `arquify-custom-tab-sections-${pid}-${tab}`;
+const FILE_SECTION_KEY = (pid: string, tab: string) => `arquify-custom-tab-file-sections-${pid}-${tab}`;
+
+/* ------------------------------------------------------------------ */
+/*  GenericFileTab                                                      */
+/* ------------------------------------------------------------------ */
+
 const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const abaKey = tabName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_");
+
+  // -- Files --
   const [files, setFiles] = useState<ArquivoRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [uploadSection, setUploadSection] = useState("");
+
+  // -- Sections --
+  const [sections, setSections] = useState<string[]>(["Geral"]);
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["Geral"]));
+  const [fileSectionMap, setFileSectionMap] = useState<Record<string, string>>({});
+  const [showAddSection, setShowAddSection] = useState(false);
+  const [newSectionName, setNewSectionName] = useState("");
+  const [renamingIdx, setRenamingIdx] = useState<number | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const renameRef = useRef<HTMLInputElement>(null);
+
+  // -- UI --
   const [search, setSearch] = useState("");
-  const [sortMode, setSortMode] = useState<SortMode>("date");
+  const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [deleteTarget, setDeleteTarget] = useState<ArquivoRow | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
@@ -99,9 +171,42 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
   const [selectMode, setSelectMode] = useState(false);
   const { downloading, downloadAsZip } = useZipDownload();
 
-  const abaKey = tabName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_");
+  // -- Save as template --
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState("");
 
-  const loadFiles = async () => {
+  /* ---------------------------------------------------------------- */
+  /*  Load persisted sections & file-section map                       */
+  /* ---------------------------------------------------------------- */
+
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem(SECTIONS_KEY(projetoId, abaKey));
+      if (s) {
+        const parsed = JSON.parse(s) as string[];
+        setSections(parsed);
+        setExpandedSections(new Set(parsed));
+      }
+      const fs = localStorage.getItem(FILE_SECTION_KEY(projetoId, abaKey));
+      if (fs) setFileSectionMap(JSON.parse(fs));
+    } catch {}
+  }, [projetoId, abaKey]);
+
+  const saveSections = (s: string[]) => {
+    setSections(s);
+    localStorage.setItem(SECTIONS_KEY(projetoId, abaKey), JSON.stringify(s));
+  };
+
+  const saveFileSectionMap = (m: Record<string, string>) => {
+    setFileSectionMap(m);
+    localStorage.setItem(FILE_SECTION_KEY(projetoId, abaKey), JSON.stringify(m));
+  };
+
+  /* ---------------------------------------------------------------- */
+  /*  Load files                                                       */
+  /* ---------------------------------------------------------------- */
+
+  const loadFiles = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("arquivos")
@@ -114,19 +219,94 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
     if (!error) setFiles((data as ArquivoRow[]) ?? []);
     setSelected(new Set());
     setLoading(false);
-  };
+  }, [projetoId, abaKey]);
 
   useEffect(() => {
     loadFiles();
-  }, [projetoId, abaKey]);
+  }, [loadFiles]);
+
+  /* ---------------------------------------------------------------- */
+  /*  Section management                                               */
+  /* ---------------------------------------------------------------- */
+
+  const handleAddSection = () => {
+    const name = newSectionName.trim();
+    if (!name || sections.includes(name)) return;
+    const updated = [...sections, name];
+    saveSections(updated);
+    setExpandedSections((prev) => new Set([...prev, name]));
+    setNewSectionName("");
+    setShowAddSection(false);
+  };
+
+  const handleRemoveSection = (name: string) => {
+    if (sections.length <= 1) return;
+    saveSections(sections.filter((s) => s !== name));
+    // Move files from removed section to first remaining
+    const remaining = sections.filter((s) => s !== name);
+    const newMap = { ...fileSectionMap };
+    Object.keys(newMap).forEach((k) => {
+      if (newMap[k] === name) newMap[k] = remaining[0];
+    });
+    saveFileSectionMap(newMap);
+  };
+
+  const startRename = (idx: number) => {
+    setRenamingIdx(idx);
+    setRenameValue(sections[idx]);
+    setTimeout(() => renameRef.current?.focus(), 50);
+  };
+
+  const commitRename = () => {
+    if (renamingIdx === null) return;
+    const trimmed = renameValue.trim();
+    const oldName = sections[renamingIdx];
+    if (!trimmed || (trimmed !== oldName && sections.includes(trimmed))) {
+      setRenamingIdx(null);
+      return;
+    }
+    const updated = [...sections];
+    updated[renamingIdx] = trimmed;
+    saveSections(updated);
+
+    // Update file-section references
+    const newMap = { ...fileSectionMap };
+    Object.keys(newMap).forEach((k) => {
+      if (newMap[k] === oldName) newMap[k] = trimmed;
+    });
+    saveFileSectionMap(newMap);
+
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      next.delete(oldName);
+      next.add(trimmed);
+      return next;
+    });
+    setRenamingIdx(null);
+  };
+
+  const toggleSection = (name: string) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  /* ---------------------------------------------------------------- */
+  /*  Upload                                                           */
+  /* ---------------------------------------------------------------- */
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const sel = e.target.files;
-    if (!sel?.length) return;
+    if (!sel?.length || !uploadSection) return;
 
     setUploading(true);
     const { data: userData } = await supabase.auth.getUser();
     const userId = userData?.user?.id;
+
+    const newFileIds: string[] = [];
 
     for (const file of Array.from(sel)) {
       const storagePath = `${projetoId}/${abaKey}/${Date.now()}_${file.name}`;
@@ -139,20 +319,31 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
         continue;
       }
 
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("project-files").getPublicUrl(storagePath);
+      const { data: { publicUrl } } = supabase.storage.from("project-files").getPublicUrl(storagePath);
 
-      await supabase.from("arquivos").insert({
-        projeto_id: projetoId,
-        workspace_id: workspaceId,
-        nome: file.name,
-        file_url: publicUrl,
-        storage_path: storagePath,
-        aba: abaKey,
-        uploaded_by: userId ?? null,
-      });
+      const { data: inserted } = await supabase
+        .from("arquivos")
+        .insert({
+          projeto_id: projetoId,
+          workspace_id: workspaceId,
+          nome: file.name,
+          file_url: publicUrl,
+          storage_path: storagePath,
+          aba: abaKey,
+          uploaded_by: userId ?? null,
+        })
+        .select("id")
+        .single();
+
+      if (inserted) newFileIds.push(inserted.id);
     }
+
+    // Map new files to section
+    const newMap = { ...fileSectionMap };
+    newFileIds.forEach((id) => {
+      newMap[id] = uploadSection;
+    });
+    saveFileSectionMap(newMap);
 
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -160,35 +351,69 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
     toast({ title: "Arquivos enviados com sucesso" });
   };
 
+  const triggerUpload = (section: string) => {
+    setUploadSection(section);
+    setTimeout(() => fileInputRef.current?.click(), 50);
+  };
+
+  /* ---------------------------------------------------------------- */
+  /*  Delete                                                           */
+  /* ---------------------------------------------------------------- */
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
     if (deleteTarget.storage_path) {
       await supabase.storage.from("project-files").remove([deleteTarget.storage_path]);
     }
     await supabase.from("arquivos").delete().eq("id", deleteTarget.id);
+
+    const newMap = { ...fileSectionMap };
+    delete newMap[deleteTarget.id];
+    saveFileSectionMap(newMap);
+
     setDeleteTarget(null);
     loadFiles();
     toast({ title: "Arquivo excluído" });
   };
 
-  const filtered = useMemo(() => {
-    let result = files;
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      result = result.filter((f) => f.nome.toLowerCase().includes(q));
-    }
-    return [...result].sort((a, b) => {
-      if (sortMode === "alpha") return a.nome.localeCompare(b.nome);
-      if (sortMode === "extension")
-        return getFileExtension(a.nome).localeCompare(getFileExtension(b.nome));
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
-  }, [files, search, sortMode]);
+  /* ---------------------------------------------------------------- */
+  /*  Filtering & sorting                                              */
+  /* ---------------------------------------------------------------- */
 
-  const previewableFiles = useMemo(
-    () => filtered.filter((f) => canPreviewFile(f.nome)),
-    [filtered]
+  const getFilteredSorted = useCallback(
+    (sectionFiles: ArquivoRow[]) => {
+      let result = sectionFiles;
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        result = result.filter((f) => f.nome.toLowerCase().includes(q));
+      }
+      return [...result].sort((a, b) => {
+        if (sortMode === "alpha") return a.nome.localeCompare(b.nome);
+        if (sortMode === "extension")
+          return getFileExtension(a.nome).localeCompare(getFileExtension(b.nome));
+        const da = new Date(a.created_at).getTime();
+        const db = new Date(b.created_at).getTime();
+        return sortMode === "oldest" ? da - db : db - da;
+      });
+    },
+    [search, sortMode]
   );
+
+  const getFilesForSection = useCallback(
+    (section: string) => {
+      return files.filter((f) => (fileSectionMap[f.id] || sections[0]) === section);
+    },
+    [files, fileSectionMap, sections]
+  );
+
+  const allPreviewable = useMemo(
+    () => files.filter((f) => canPreviewFile(f.nome)),
+    [files]
+  );
+
+  /* ---------------------------------------------------------------- */
+  /*  Select                                                           */
+  /* ---------------------------------------------------------------- */
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
@@ -199,41 +424,115 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
     });
   };
 
-  const toggleSelectAll = () => {
-    if (selected.size === filtered.length) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(filtered.map((f) => f.id)));
-    }
+  /* ---------------------------------------------------------------- */
+  /*  Save as template                                                 */
+  /* ---------------------------------------------------------------- */
+
+  const handleSaveTemplate = () => {
+    const name = templateName.trim();
+    if (!name) return;
+    const templates = loadTabTemplates();
+    const newTemplate: TabTemplate = {
+      id: Date.now().toString(),
+      name,
+      sections: [...sections],
+      viewMode,
+    };
+    templates.push(newTemplate);
+    saveTabTemplates(templates);
+    setShowSaveTemplate(false);
+    setTemplateName("");
+    toast({ title: "Modelo salvo com sucesso" });
   };
 
-  const allSelected = filtered.length > 0 && selected.size === filtered.length;
-  const someSelected = selected.size > 0;
+  /* ---------------------------------------------------------------- */
+  /*  Render file grid/list per section                                */
+  /* ---------------------------------------------------------------- */
 
-  const renderGrid = () => {
+  const renderFiles = (sectionFiles: ArquivoRow[]) => {
+    const sorted = getFilteredSorted(sectionFiles);
+    if (sorted.length === 0) {
+      return (
+        <p className="text-sm text-muted-foreground italic py-3 text-center">
+          Nenhum arquivo nesta seção.
+        </p>
+      );
+    }
+
+    if (viewMode === "list") {
+      return (
+        <div className="space-y-1">
+          {sorted.map((file) => {
+            const ext = getFileExtension(file.nome);
+            const isPreviewable = canPreviewFile(file.nome);
+            const pIdx = allPreviewable.findIndex((f) => f.id === file.id);
+            return (
+              <div
+                key={file.id}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group",
+                  isPreviewable && "cursor-pointer"
+                )}
+                onClick={() => isPreviewable && pIdx !== -1 && setPreviewIndex(pIdx)}
+              >
+                {selectMode && (
+                  <Checkbox
+                    checked={selected.has(file.id)}
+                    onCheckedChange={() => toggleSelect(file.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="size-3.5 shrink-0"
+                  />
+                )}
+                {getFileIcon(ext)}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate text-foreground">{file.nome}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {ext.toUpperCase()} · {new Date(file.created_at).toLocaleDateString("pt-BR")}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button variant="ghost" size="icon" className="size-7" onClick={(e) => { e.stopPropagation(); window.open(file.file_url, "_blank"); }}>
+                    <Download className="size-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="size-7 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(file); }}>
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // Grid modes
     const gridClass =
       viewMode === "small"
-        ? "grid-cols-6 sm:grid-cols-8 md:grid-cols-10"
+        ? "grid-cols-4 sm:grid-cols-6 md:grid-cols-8"
         : viewMode === "medium"
         ? "grid-cols-3 sm:grid-cols-4 md:grid-cols-6"
         : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4";
 
-    const iconSize = viewMode === "small" ? "size-6" : viewMode === "medium" ? "size-10" : "size-16";
     const thumbSize = viewMode === "small" ? "h-16" : viewMode === "medium" ? "h-28" : "h-44";
+    const iconSize = viewMode === "small" ? "size-6" : viewMode === "medium" ? "size-10" : "size-16";
 
     return (
       <div className={`grid ${gridClass} gap-2`}>
-        {filtered.map((file) => {
+        {sorted.map((file) => {
           const ext = getFileExtension(file.nome);
           const isImage = IMAGE_EXTS.includes(ext);
           const isPdf = isPdfFile(file.nome);
+          const isVideo = isVideoFile(file.nome);
           const isPreviewable = canPreviewFile(file.nome);
-          const pIdx = previewableFiles.findIndex((f) => f.id === file.id);
+          const pIdx = allPreviewable.findIndex((f) => f.id === file.id);
 
           return (
             <div
               key={file.id}
-              className={`group relative flex flex-col items-center border border-border rounded-lg p-2 hover:bg-muted/30 transition-colors ${isPreviewable ? "cursor-pointer" : ""}`}
+              className={cn(
+                "group relative flex flex-col items-center border border-border rounded-lg p-2 hover:bg-muted/30 transition-colors",
+                isPreviewable && "cursor-pointer"
+              )}
               onClick={() => isPreviewable && pIdx !== -1 && setPreviewIndex(pIdx)}
             >
               {selectMode && (
@@ -247,41 +546,29 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
                 </div>
               )}
               {isImage ? (
-                <img
-                  src={file.file_url}
-                  alt={file.nome}
-                  className={`${thumbSize} w-full object-cover rounded`}
-                  loading="lazy"
-                />
+                <img src={file.file_url} alt="" className={`${thumbSize} w-full object-cover rounded`} loading="lazy" />
               ) : isPdf ? (
-                <PdfThumbnail
-                  fileUrl={file.file_url}
-                  className={`${thumbSize} w-full overflow-hidden`}
-                />
+                <PdfThumbnail fileUrl={file.file_url} className={`${thumbSize} w-full overflow-hidden`} />
+              ) : isVideo ? (
+                <div className={`${thumbSize} w-full flex items-center justify-center bg-muted/30 rounded relative`}>
+                  <video src={file.file_url} className="w-full h-full object-cover rounded" muted preload="metadata" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="size-8 rounded-full bg-background/80 flex items-center justify-center">
+                      <Play className="size-4 text-foreground ml-0.5" />
+                    </div>
+                  </div>
+                </div>
               ) : (
                 <div className={`${thumbSize} w-full flex items-center justify-center bg-muted/30 rounded`}>
                   {getFileIcon(ext, iconSize)}
                 </div>
               )}
-              <p className="text-[11px] text-foreground truncate w-full text-center mt-1 font-medium">
-                {file.nome}
-              </p>
               {/* Hover actions */}
               <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  className="size-6"
-                  onClick={(e) => { e.stopPropagation(); window.open(file.file_url, "_blank"); }}
-                >
+                <Button variant="secondary" size="icon" className="size-6" onClick={(e) => { e.stopPropagation(); window.open(file.file_url, "_blank"); }}>
                   <Download className="size-3" />
                 </Button>
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  className="size-6 text-destructive hover:text-destructive"
-                  onClick={(e) => { e.stopPropagation(); setDeleteTarget(file); }}
-                >
+                <Button variant="secondary" size="icon" className="size-6 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(file); }}>
                   <Trash2 className="size-3" />
                 </Button>
               </div>
@@ -292,10 +579,14 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
     );
   };
 
+  /* ---------------------------------------------------------------- */
+  /*  Main render                                                      */
+  /* ---------------------------------------------------------------- */
+
   return (
     <div className="space-y-3">
       {/* Toolbar */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
           <Input
@@ -305,6 +596,8 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
             className="h-8 pl-8 text-xs"
           />
         </div>
+
+        {/* Sort */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" className="size-8">
@@ -312,8 +605,11 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setSortMode("date")} className={sortMode === "date" ? "font-semibold" : ""}>
-              Data de upload
+            <DropdownMenuItem onClick={() => setSortMode("newest")} className={sortMode === "newest" ? "font-semibold" : ""}>
+              Mais recente
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setSortMode("oldest")} className={sortMode === "oldest" ? "font-semibold" : ""}>
+              Mais antigo
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setSortMode("alpha")} className={sortMode === "alpha" ? "font-semibold" : ""}>
               Alfabética
@@ -345,127 +641,194 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <input ref={fileInputRef} type="file" accept={ACCEPTED_FORMATS} multiple className="hidden" onChange={handleUpload} />
-        <Button size="sm" className="gap-1.5" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-          <Plus className="size-3.5" />
-          {uploading ? "Enviando..." : "Adicionar"}
+        {/* Select mode */}
+        <Button
+          variant={selectMode ? "secondary" : "outline"}
+          size="sm"
+          className="h-8 text-xs gap-1.5"
+          onClick={() => {
+            setSelectMode((prev) => {
+              if (prev) setSelected(new Set());
+              return !prev;
+            });
+          }}
+        >
+          Selecionar
+        </Button>
+
+        {selectMode && selected.size > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs gap-1.5"
+            disabled={downloading}
+            onClick={() => {
+              const toDownload = files.filter((f) => selected.has(f.id));
+              downloadAsZip(toDownload, `${tabName}.zip`);
+            }}
+          >
+            <PackageOpen className="size-3" />
+            Baixar selecionados (.zip)
+          </Button>
+        )}
+
+        {/* Save as template */}
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-8"
+          title="Salvar como modelo"
+          onClick={() => {
+            setTemplateName(tabName);
+            setShowSaveTemplate(true);
+          }}
+        >
+          <Save className="size-3.5" />
         </Button>
       </div>
 
-      {/* Select toggle + bulk actions */}
-      {filtered.length > 0 && (
-        <div className="flex items-center justify-between gap-2 px-1">
-          <Button
-            variant={selectMode ? "secondary" : "outline"}
-            size="sm"
-            className="h-7 text-xs gap-1.5"
-            onClick={() => {
-              setSelectMode((prev) => {
-                if (prev) setSelected(new Set());
-                return !prev;
-              });
-            }}
-          >
-            <Checkbox
-              checked={selectMode && allSelected}
-              onCheckedChange={() => {
-                if (!selectMode) {
-                  setSelectMode(true);
-                  setSelected(new Set(filtered.map((f) => f.id)));
-                } else {
-                  toggleSelectAll();
-                }
-              }}
-              onClick={(e) => e.stopPropagation()}
-              className="size-3.5"
-            />
-            Selecionar
-          </Button>
-          {selectMode && (
-            <div className="flex items-center gap-1.5">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs gap-1.5"
-                disabled={!someSelected || downloading}
-                onClick={() => {
-                  const toDownload = filtered.filter((f) => selected.has(f.id));
-                  downloadAsZip(toDownload, `${tabName}.zip`);
-                }}
-              >
-                <PackageOpen className="size-3" />
-                Baixar selecionados (.zip)
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs gap-1.5"
-                disabled={downloading}
-                onClick={() => downloadAsZip(filtered, `${tabName}_todos.zip`)}
-              >
-                <Download className="size-3" />
-                Baixar todos (.zip)
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
+      <input ref={fileInputRef} type="file" accept={ACCEPTED_FORMATS} multiple className="hidden" onChange={handleUpload} />
 
-      {/* File list / grid */}
+      {/* Sections */}
       {loading ? (
         <div className="flex justify-center py-12">
           <div className="size-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
-      ) : filtered.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground text-sm">
-          {search ? "Nenhum arquivo encontrado." : "Nenhum arquivo nesta aba."}
-        </div>
-      ) : viewMode === "list" ? (
-        <div className="space-y-1">
-          {filtered.map((file) => {
-            const ext = getFileExtension(file.nome);
-            const isPreviewable = canPreviewFile(file.nome);
-            const pIdx = previewableFiles.findIndex((f) => f.id === file.id);
+      ) : (
+        <div className="space-y-3">
+          {sections.map((section, idx) => {
+            const sectionFiles = getFilesForSection(section);
+            const isExpanded = expandedSections.has(section);
+            const isRenaming = renamingIdx === idx;
+
             return (
-              <div
-                key={file.id}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group ${isPreviewable ? "cursor-pointer" : ""}`}
-              >
-                {selectMode && (
-                  <Checkbox
-                    checked={selected.has(file.id)}
-                    onCheckedChange={() => toggleSelect(file.id)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="size-3.5 shrink-0"
-                  />
-                )}
+              <div key={section} className="border border-border rounded-lg overflow-hidden">
+                {/* Section header */}
                 <div
-                  className="flex items-center gap-3 flex-1 min-w-0"
-                  onClick={() => isPreviewable && pIdx !== -1 && setPreviewIndex(pIdx)}
+                  className="flex items-center gap-2 px-3 py-2 bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => !isRenaming && toggleSection(section)}
                 >
-                  {getFileIcon(ext)}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate text-foreground">{file.nome}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {ext.toUpperCase()} · {new Date(file.created_at).toLocaleDateString("pt-BR")}
-                    </p>
+                  <ChevronDown
+                    className={cn(
+                      "size-4 text-muted-foreground transition-transform shrink-0",
+                      !isExpanded && "-rotate-90"
+                    )}
+                  />
+                  {isRenaming ? (
+                    <input
+                      ref={renameRef}
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onBlur={commitRename}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitRename();
+                        if (e.key === "Escape") setRenamingIdx(null);
+                      }}
+                      className="flex-1 bg-transparent border-b border-primary outline-none text-sm font-medium text-foreground"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  ) : (
+                    <span className="text-sm font-medium text-foreground flex-1">{section}</span>
+                  )}
+                  <span className="text-xs text-muted-foreground">{sectionFiles.length}</span>
+
+                  {/* Section actions */}
+                  <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-6"
+                      onClick={() => triggerUpload(section)}
+                      disabled={uploading}
+                    >
+                      <Plus className="size-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-6"
+                      onClick={() => startRename(idx)}
+                    >
+                      <Pencil className="size-3" />
+                    </Button>
+                    {sections.length > 1 && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-6 text-destructive hover:text-destructive"
+                        onClick={() => handleRemoveSection(section)}
+                      >
+                        <X className="size-3" />
+                      </Button>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button variant="ghost" size="icon" className="size-7" onClick={(e) => { e.stopPropagation(); window.open(file.file_url, "_blank"); }}>
-                    <Download className="size-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="size-7 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(file); }}>
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                </div>
+
+                {/* Section content */}
+                {isExpanded && (
+                  <div className="px-3 py-2">
+                    {renderFiles(sectionFiles)}
+                  </div>
+                )}
               </div>
             );
           })}
+
+          {/* Add section button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => setShowAddSection(true)}
+          >
+            <Plus className="size-3" />
+            Nova seção
+          </Button>
         </div>
-      ) : (
-        renderGrid()
       )}
+
+      {/* Add section dialog */}
+      <Dialog open={showAddSection} onOpenChange={setShowAddSection}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base">Nova seção</DialogTitle>
+          </DialogHeader>
+          <Input
+            placeholder="Nome da seção"
+            value={newSectionName}
+            onChange={(e) => setNewSectionName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleAddSection()}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setShowAddSection(false)}>Cancelar</Button>
+            <Button size="sm" onClick={handleAddSection} disabled={!newSectionName.trim()}>Criar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Save as template dialog */}
+      <Dialog open={showSaveTemplate} onOpenChange={setShowSaveTemplate}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base">Salvar como modelo</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            O modelo salva apenas a estrutura (nome das seções e modo de visualização), sem arquivos.
+          </p>
+          <Input
+            placeholder="Nome do modelo"
+            value={templateName}
+            onChange={(e) => setTemplateName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSaveTemplate()}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setShowSaveTemplate(false)}>Cancelar</Button>
+            <Button size="sm" onClick={handleSaveTemplate} disabled={!templateName.trim()}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
@@ -484,13 +847,13 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
       </AlertDialog>
 
       {/* File preview */}
-      {previewIndex !== null && previewableFiles[previewIndex] && (
+      {previewIndex !== null && allPreviewable[previewIndex] && (
         <FilePreviewDialog
           open
           onClose={() => setPreviewIndex(null)}
-          fileUrl={previewableFiles[previewIndex].file_url}
-          fileName={previewableFiles[previewIndex].nome}
-          files={previewableFiles}
+          fileUrl={allPreviewable[previewIndex].file_url}
+          fileName={allPreviewable[previewIndex].nome}
+          files={allPreviewable}
           currentIndex={previewIndex}
           onNavigate={setPreviewIndex}
         />
