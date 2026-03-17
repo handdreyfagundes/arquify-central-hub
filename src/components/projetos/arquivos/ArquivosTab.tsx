@@ -158,7 +158,29 @@ const ArquivosTab = ({ projetoId }: ArquivosTabProps) => {
     setShowAddTab(true);
   };
 
-  const handleRemoveTab = (name: string) => {
+  const handleRemoveTab = async (name: string) => {
+    const abaKey = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_");
+
+    // Delete files from storage and database for this tab
+    const { data: files } = await supabase
+      .from("arquivos")
+      .select("id, storage_path")
+      .eq("projeto_id", projetoId)
+      .eq("aba", abaKey);
+
+    if (files && files.length > 0) {
+      const storagePaths = files.map((f) => f.storage_path).filter(Boolean) as string[];
+      if (storagePaths.length > 0) {
+        await supabase.storage.from("project-files").remove(storagePaths);
+      }
+      const ids = files.map((f) => f.id);
+      await supabase.from("arquivos").delete().in("id", ids);
+    }
+
+    // Clean up localStorage
+    localStorage.removeItem(`arquify-custom-tab-sections-${projetoId}-${abaKey}`);
+    localStorage.removeItem(`arquify-custom-tab-file-sections-${projetoId}-${abaKey}`);
+
     saveCustomTabs(customTabs.filter((t) => t !== name));
     if (activeTab === name) setActiveTab("Projeto");
   };
