@@ -23,11 +23,42 @@ interface ArquivosTabProps {
   projetoId: string;
 }
 
+interface CustomTab {
+  id: string;
+  name: string;
+}
+
 const DEFAULT_TABS = ["Projeto", "Recebidos", "Obra"];
+
+const normalizeTabKey = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_");
+
+const createCustomTabId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `custom-tab-${crypto.randomUUID()}`;
+  }
+
+  return `custom-tab-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
+const isCustomTab = (value: unknown): value is CustomTab => {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "name" in value &&
+    typeof (value as { id: unknown }).id === "string" &&
+    typeof (value as { name: unknown }).name === "string"
+  );
+};
 
 const ArquivosTab = ({ projetoId }: ArquivosTabProps) => {
   const [activeTab, setActiveTab] = useState("Projeto");
-  const [customTabs, setCustomTabs] = useState<string[]>([]);
+  const [customTabs, setCustomTabs] = useState<CustomTab[]>([]);
   const [showAddTab, setShowAddTab] = useState(false);
   const [addStep, setAddStep] = useState<"choose" | "manual" | "template">("choose");
   const [newTabName, setNewTabName] = useState("");
@@ -37,14 +68,14 @@ const ArquivosTab = ({ projetoId }: ArquivosTabProps) => {
   const renameInputRef = useRef<HTMLInputElement>(null);
   const [templates, setTemplates] = useState<TabTemplate[]>([]);
 
-  // Cronograma data
   const [etapas, setEtapas] = useState<Etapa[]>([]);
   const [subetapasMap, setSubetapasMap] = useState<Record<string, Subetapa[]>>({});
   const [revisionsMap, setRevisionsMap] = useState<Record<string, Revisao[]>>({});
   const [stageRevisionsMap, setStageRevisionsMap] = useState<Record<string, Revisao[]>>({});
   const [loading, setLoading] = useState(true);
 
-  const allTabs = [...DEFAULT_TABS, ...customTabs];
+  const allTabNames = [...DEFAULT_TABS, ...customTabs.map((tab) => tab.name)];
+  const activeCustomTab = customTabs.find((tab) => tab.id === activeTab) ?? null;
 
   useEffect(() => {
     (async () => {
@@ -102,47 +133,136 @@ const ArquivosTab = ({ projetoId }: ArquivosTabProps) => {
     loadCronograma();
   }, [loadCronograma]);
 
-  useEffect(() => {
-    const stored = localStorage.getItem(`arquify-custom-tabs-${projetoId}`);
-    if (stored) {
-      try { setCustomTabs(JSON.parse(stored)); } catch {}
-    }
-  }, [projetoId]);
+  const saveCustomTabs = useCallback(
+    (tabs: CustomTab[]) => {
+      setCustomTabs(tabs);
+      localStorage.setItem(`arquify-custom-tabs-${projetoId}`, JSON.stringify(tabs));
+    },
+    [projetoId]
+  );
 
-  const saveCustomTabs = (tabs: string[]) => {
-    setCustomTabs(tabs);
-    localStorage.setItem(`arquify-custom-tabs-${projetoId}`, JSON.stringify(tabs));
-  };
+  const migrateLegacyCustomTabs = useCallback(
+    async (storedTabs: Array<string | CustomTab>) => {
+      let changed = false;
+      const migratedTabs: CustomTab[] = [];
+
+      for (const storedTab of storedTabs) {
+        if (typeof storedTab === "string") {
+          changed = true;
+          const legacyKey = normalizeTabKey(storedTab);
+          const nextId = createCustomTabId();
+          const migratedTab = { id: nextId, name: storedTab };
+
+          const legacySectionsKey = `arquify-custom-tab-sections-${projetoId}-${legacyKey}`;
+          const legacyFileSectionsKey = `arquify-custom-tab-file-sections-${projetoId}-${legacyKey}`;
+          const nextSectionsKey = `arquify-custom-tab-sections-${projetoId}-${nextId}`;
+          const nextFileSectionsKey = `arquify-custom-tab-file-sections-${projetoId}-${nextId}`;
+
+          const storedSections = localStorage.getItem(legacySectionsKey);
+          const storedFileSections = localStorage.getItem(legacyFileSectionsKey);
+
+          if (storedSections && !localStorage.getItem(nextSectionsKey)) {
+            localStorage.setItem(nextSectionsKey, storedSections);
+          }
+
+          if (storedFileSections && !localStorage.getItem(nextFileSectionsKey)) {
+            localStorage.setItem(nextFileSectionsKey, storedFileSections);
+          }
+
+          localStorage.removeItem(legacySectionsKey);
+          localStorage.removeItem(legacyFileSectionsKey);
+
+          const { error } = await supabase
+            .from("arquivos")
+            .update({ aba: nextId })
+            .eq("projeto_id", projetoId)
+            .eq("aba", legacyKey)
+            .is("revisao_id", null);
+
+          if (error) {
+            console.error("Error migrating custom tab records", error);
+          }
+
+          migratedTabs.push(migratedTab);
+          continue;
+        }
+
+        migratedTabs.push(storedTab);
+      }
+
+      return { changed, migratedTabs };
+    },
+    [projetoId]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      const stored = localStorage.getItem(`arquify-custom-tabs-${projetoId}`);
+      if (!stored) {
+        if (!cancelled) setCustomTabs([]);
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(stored) as Array<string | CustomTab>;
+        if (!Array.isArray(parsed)) {
+          if (!cancelled) setCustomTabs([]);
+          return;
+        }
+
+        const filtered = parsed.filter((item) => typeof item === "string" || isCustomTab(item));
+        const { changed, migratedTabs } = await migrateLegacyCustomTabs(filtered);
+
+        if (cancelled) return;
+
+        setCustomTabs(migratedTabs);
+        if (changed) {
+          localStorage.setItem(`arquify-custom-tabs-${projetoId}`, JSON.stringify(migratedTabs));
+        }
+      } catch {
+        if (!cancelled) setCustomTabs([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [migrateLegacyCustomTabs, projetoId]);
 
   const handleAddTab = () => {
     const name = newTabName.trim();
-    if (!name || allTabs.includes(name)) return;
-    saveCustomTabs([...customTabs, name]);
+    if (!name || allTabNames.includes(name)) return;
+
+    const newTab = { id: createCustomTabId(), name };
+    saveCustomTabs([...customTabs, newTab]);
     setNewTabName("");
     setShowAddTab(false);
     setAddStep("choose");
-    setActiveTab(name);
+    setActiveTab(newTab.id);
   };
 
   const handleAddFromTemplate = (template: TabTemplate) => {
-    // Use template name as tab name, dedup if needed
     let name = template.name;
     let counter = 1;
-    while (allTabs.includes(name)) {
+    while (allTabNames.includes(name)) {
       counter++;
       name = `${template.name} (${counter})`;
     }
-    saveCustomTabs([...customTabs, name]);
 
-    // Apply template structure ONLY (sections + view mode, never files)
-    const abaKey = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_");
-    localStorage.setItem(`arquify-custom-tab-sections-${projetoId}-${abaKey}`, JSON.stringify(template.sections));
-    // Ensure no file-section mapping carries over — start with empty content
-    localStorage.removeItem(`arquify-custom-tab-file-sections-${projetoId}-${abaKey}`);
+    const newTab = { id: createCustomTabId(), name };
+    saveCustomTabs([...customTabs, newTab]);
+
+    localStorage.setItem(
+      `arquify-custom-tab-sections-${projetoId}-${newTab.id}`,
+      JSON.stringify(template.sections)
+    );
+    localStorage.removeItem(`arquify-custom-tab-file-sections-${projetoId}-${newTab.id}`);
 
     setShowAddTab(false);
     setAddStep("choose");
-    setActiveTab(name);
+    setActiveTab(newTab.id);
   };
 
   const handleDeleteTemplate = (templateId: string) => {
@@ -158,51 +278,60 @@ const ArquivosTab = ({ projetoId }: ArquivosTabProps) => {
     setShowAddTab(true);
   };
 
-  const handleRemoveTab = async (name: string) => {
-    const abaKey = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_");
+  const handleRemoveTab = async (tab: CustomTab) => {
+    const legacyKey = normalizeTabKey(tab.name);
+    const lookupKeys = Array.from(new Set([tab.id, legacyKey]));
 
-    // Delete files from storage and database for this tab
     const { data: files } = await supabase
       .from("arquivos")
       .select("id, storage_path")
       .eq("projeto_id", projetoId)
-      .eq("aba", abaKey);
+      .in("aba", lookupKeys);
 
     if (files && files.length > 0) {
-      const storagePaths = files.map((f) => f.storage_path).filter(Boolean) as string[];
+      const storagePaths = files.map((file) => file.storage_path).filter(Boolean) as string[];
       if (storagePaths.length > 0) {
         await supabase.storage.from("project-files").remove(storagePaths);
       }
-      const ids = files.map((f) => f.id);
+
+      const ids = files.map((file) => file.id);
       await supabase.from("arquivos").delete().in("id", ids);
     }
 
-    // Clean up localStorage
-    localStorage.removeItem(`arquify-custom-tab-sections-${projetoId}-${abaKey}`);
-    localStorage.removeItem(`arquify-custom-tab-file-sections-${projetoId}-${abaKey}`);
+    localStorage.removeItem(`arquify-custom-tab-sections-${projetoId}-${tab.id}`);
+    localStorage.removeItem(`arquify-custom-tab-file-sections-${projetoId}-${tab.id}`);
+    localStorage.removeItem(`arquify-custom-tab-sections-${projetoId}-${legacyKey}`);
+    localStorage.removeItem(`arquify-custom-tab-file-sections-${projetoId}-${legacyKey}`);
 
-    saveCustomTabs(customTabs.filter((t) => t !== name));
-    if (activeTab === name) setActiveTab("Projeto");
+    saveCustomTabs(customTabs.filter((currentTab) => currentTab.id !== tab.id));
+    if (activeTab === tab.id) setActiveTab("Projeto");
   };
 
   const startRename = (index: number) => {
     setRenamingIndex(index);
-    setRenameValue(customTabs[index]);
+    setRenameValue(customTabs[index].name);
     setTimeout(() => renameInputRef.current?.focus(), 50);
   };
 
   const commitRename = () => {
     if (renamingIndex === null) return;
+
     const trimmed = renameValue.trim();
-    const oldName = customTabs[renamingIndex];
-    if (!trimmed || (trimmed !== oldName && allTabs.includes(trimmed))) {
+    const currentTab = customTabs[renamingIndex];
+    if (!currentTab) {
       setRenamingIndex(null);
       return;
     }
+
+    const oldName = currentTab.name;
+    if (!trimmed || (trimmed !== oldName && allTabNames.includes(trimmed))) {
+      setRenamingIndex(null);
+      return;
+    }
+
     const updated = [...customTabs];
-    updated[renamingIndex] = trimmed;
+    updated[renamingIndex] = { ...currentTab, name: trimmed };
     saveCustomTabs(updated);
-    if (activeTab === oldName) setActiveTab(trimmed);
     setRenamingIndex(null);
   };
 
@@ -216,19 +345,30 @@ const ArquivosTab = ({ projetoId }: ArquivosTabProps) => {
 
   return (
     <div className="space-y-4">
-      {/* Sub-tabs */}
       <div className="flex items-center gap-1 border-b border-border pb-0">
-        {allTabs.map((tab) => {
-          const customIndex = customTabs.indexOf(tab);
-          const isCustom = customIndex !== -1;
-          const isRenaming = isCustom && renamingIndex === customIndex;
+        {DEFAULT_TABS.map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`relative flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors rounded-t-lg group ${
+              activeTab === tab
+                ? "bg-accent text-primary border-b-2 border-primary"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+
+        {customTabs.map((tab, customIndex) => {
+          const isRenaming = renamingIndex === customIndex;
 
           return (
             <button
-              key={tab}
-              onClick={() => !isRenaming && setActiveTab(tab)}
+              key={tab.id}
+              onClick={() => !isRenaming && setActiveTab(tab.id)}
               className={`relative flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors rounded-t-lg group ${
-                activeTab === tab
+                activeTab === tab.id
                   ? "bg-accent text-primary border-b-2 border-primary"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
               }`}
@@ -247,23 +387,30 @@ const ArquivosTab = ({ projetoId }: ArquivosTabProps) => {
                   onClick={(e) => e.stopPropagation()}
                 />
               ) : (
-                tab
+                tab.name
               )}
-              {isCustom && !isRenaming && (
+              {!isRenaming && (
                 <>
                   <Pencil
                     className="size-3 opacity-0 group-hover:opacity-50 hover:!opacity-100 cursor-pointer transition-opacity"
-                    onClick={(e) => { e.stopPropagation(); startRename(customIndex); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startRename(customIndex);
+                    }}
                   />
                   <X
                     className="size-3 opacity-0 group-hover:opacity-50 hover:!opacity-100 cursor-pointer transition-opacity"
-                    onClick={(e) => { e.stopPropagation(); handleRemoveTab(tab); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handleRemoveTab(tab);
+                    }}
                   />
                 </>
               )}
             </button>
           );
         })}
+
         <button
           onClick={openAddDialog}
           className="flex items-center justify-center size-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
@@ -272,7 +419,6 @@ const ArquivosTab = ({ projetoId }: ArquivosTabProps) => {
         </button>
       </div>
 
-      {/* Tab content */}
       {activeTab === "Projeto" ? (
         <ProjetoSubTab
           projetoId={projetoId}
@@ -284,25 +430,22 @@ const ArquivosTab = ({ projetoId }: ArquivosTabProps) => {
           loading={loading}
         />
       ) : activeTab === "Recebidos" ? (
-        <RecebidosTab
-          projetoId={projetoId}
-          workspaceId={workspaceId}
-        />
+        <RecebidosTab projetoId={projetoId} workspaceId={workspaceId} />
       ) : activeTab === "Obra" ? (
-        <ObraTab
-          projetoId={projetoId}
-          workspaceId={workspaceId}
-        />
-      ) : (
+        <ObraTab projetoId={projetoId} workspaceId={workspaceId} />
+      ) : activeCustomTab ? (
         <GenericFileTab
           projetoId={projetoId}
           workspaceId={workspaceId}
-          tabName={activeTab}
+          tabId={activeCustomTab.id}
+          tabName={activeCustomTab.name}
         />
-      )}
+      ) : null}
 
-      {/* Add tab dialog */}
-      <Dialog open={showAddTab} onOpenChange={(v) => { setShowAddTab(v); if (!v) setAddStep("choose"); }}>
+      <Dialog open={showAddTab} onOpenChange={(value) => {
+        setShowAddTab(value);
+        if (!value) setAddStep("choose");
+      }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-base">
@@ -378,7 +521,10 @@ const ArquivosTab = ({ projetoId }: ArquivosTabProps) => {
                         variant="ghost"
                         size="icon"
                         className="size-7 shrink-0 text-destructive hover:text-destructive"
-                        onClick={(e) => { e.stopPropagation(); handleDeleteTemplate(tpl.id); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteTemplate(tpl.id);
+                        }}
                       >
                         <Trash2 className="size-3.5" />
                       </Button>

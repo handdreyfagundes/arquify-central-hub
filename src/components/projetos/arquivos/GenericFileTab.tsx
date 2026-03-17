@@ -64,6 +64,7 @@ interface ArquivoRow {
 interface GenericFileTabProps {
   projetoId: string;
   workspaceId: string;
+  tabId: string;
   tabName: string;
 }
 
@@ -132,18 +133,16 @@ export function saveTabTemplates(templates: TabTemplate[]) {
 /*  Section storage helpers                                             */
 /* ------------------------------------------------------------------ */
 
-const SECTIONS_KEY = (pid: string, tab: string) => `arquify-custom-tab-sections-${pid}-${tab}`;
-const FILE_SECTION_KEY = (pid: string, tab: string) => `arquify-custom-tab-file-sections-${pid}-${tab}`;
+const SECTIONS_KEY = (pid: string, tabId: string) => `arquify-custom-tab-sections-${pid}-${tabId}`;
+const FILE_SECTION_KEY = (pid: string, tabId: string) => `arquify-custom-tab-file-sections-${pid}-${tabId}`;
 
 /* ------------------------------------------------------------------ */
 /*  GenericFileTab                                                      */
 /* ------------------------------------------------------------------ */
 
-const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps) => {
+const GenericFileTab = ({ projetoId, workspaceId, tabId, tabName }: GenericFileTabProps) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const abaKey = tabName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_");
 
   // -- Files --
   const [files, setFiles] = useState<ArquivoRow[]>([]);
@@ -181,25 +180,38 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
 
   useEffect(() => {
     try {
-      const s = localStorage.getItem(SECTIONS_KEY(projetoId, abaKey));
-      if (s) {
-        const parsed = JSON.parse(s) as string[];
+      const storedSections = localStorage.getItem(SECTIONS_KEY(projetoId, tabId));
+      const storedFileSections = localStorage.getItem(FILE_SECTION_KEY(projetoId, tabId));
+
+      if (storedSections) {
+        const parsed = JSON.parse(storedSections) as string[];
         setSections(parsed);
         setExpandedSections(new Set(parsed));
+      } else {
+        setSections(["Geral"]);
+        setExpandedSections(new Set(["Geral"]));
       }
-      const fs = localStorage.getItem(FILE_SECTION_KEY(projetoId, abaKey));
-      if (fs) setFileSectionMap(JSON.parse(fs));
-    } catch {}
-  }, [projetoId, abaKey]);
 
-  const saveSections = (s: string[]) => {
-    setSections(s);
-    localStorage.setItem(SECTIONS_KEY(projetoId, abaKey), JSON.stringify(s));
+      if (storedFileSections) {
+        setFileSectionMap(JSON.parse(storedFileSections));
+      } else {
+        setFileSectionMap({});
+      }
+    } catch {
+      setSections(["Geral"]);
+      setExpandedSections(new Set(["Geral"]));
+      setFileSectionMap({});
+    }
+  }, [projetoId, tabId]);
+
+  const saveSections = (nextSections: string[]) => {
+    setSections(nextSections);
+    localStorage.setItem(SECTIONS_KEY(projetoId, tabId), JSON.stringify(nextSections));
   };
 
-  const saveFileSectionMap = (m: Record<string, string>) => {
-    setFileSectionMap(m);
-    localStorage.setItem(FILE_SECTION_KEY(projetoId, abaKey), JSON.stringify(m));
+  const saveFileSectionMap = (nextMap: Record<string, string>) => {
+    setFileSectionMap(nextMap);
+    localStorage.setItem(FILE_SECTION_KEY(projetoId, tabId), JSON.stringify(nextMap));
   };
 
   /* ---------------------------------------------------------------- */
@@ -212,14 +224,14 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
       .from("arquivos")
       .select("id, nome, file_url, storage_path, created_at")
       .eq("projeto_id", projetoId)
-      .eq("aba", abaKey)
+      .eq("aba", tabId)
       .is("revisao_id", null)
       .order("created_at", { ascending: false });
 
     if (!error) setFiles((data as ArquivoRow[]) ?? []);
     setSelected(new Set());
     setLoading(false);
-  }, [projetoId, abaKey]);
+  }, [projetoId, tabId]);
 
   useEffect(() => {
     loadFiles();
@@ -242,11 +254,10 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
   const handleRemoveSection = (name: string) => {
     if (sections.length <= 1) return;
     saveSections(sections.filter((s) => s !== name));
-    // Move files from removed section to first remaining
     const remaining = sections.filter((s) => s !== name);
     const newMap = { ...fileSectionMap };
-    Object.keys(newMap).forEach((k) => {
-      if (newMap[k] === name) newMap[k] = remaining[0];
+    Object.keys(newMap).forEach((key) => {
+      if (newMap[key] === name) newMap[key] = remaining[0];
     });
     saveFileSectionMap(newMap);
   };
@@ -269,10 +280,9 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
     updated[renamingIdx] = trimmed;
     saveSections(updated);
 
-    // Update file-section references
     const newMap = { ...fileSectionMap };
-    Object.keys(newMap).forEach((k) => {
-      if (newMap[k] === oldName) newMap[k] = trimmed;
+    Object.keys(newMap).forEach((key) => {
+      if (newMap[key] === oldName) newMap[key] = trimmed;
     });
     saveFileSectionMap(newMap);
 
@@ -309,7 +319,7 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
     const newFileIds: string[] = [];
 
     for (const file of Array.from(sel)) {
-      const storagePath = `${projetoId}/${abaKey}/${Date.now()}_${file.name}`;
+      const storagePath = `${projetoId}/${tabId}/${Date.now()}_${file.name}`;
       const { error: uploadErr } = await supabase.storage
         .from("project-files")
         .upload(storagePath, file);
@@ -319,7 +329,9 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
         continue;
       }
 
-      const { data: { publicUrl } } = supabase.storage.from("project-files").getPublicUrl(storagePath);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("project-files").getPublicUrl(storagePath);
 
       const { data: inserted } = await supabase
         .from("arquivos")
@@ -329,7 +341,7 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
           nome: file.name,
           file_url: publicUrl,
           storage_path: storagePath,
-          aba: abaKey,
+          aba: tabId,
           uploaded_by: userId ?? null,
         })
         .select("id")
@@ -338,7 +350,6 @@ const GenericFileTab = ({ projetoId, workspaceId, tabName }: GenericFileTabProps
       if (inserted) newFileIds.push(inserted.id);
     }
 
-    // Map new files to section
     const newMap = { ...fileSectionMap };
     newFileIds.forEach((id) => {
       newMap[id] = uploadSection;
