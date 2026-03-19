@@ -57,7 +57,7 @@ async function fetchTable(tableName: string): Promise<Record<string, unknown>[]>
     console.warn(`Erro ao exportar ${tableName}:`, error.message);
     return [];
   }
-  return (data as Record<string, unknown>[]) ?? [];
+  return (data as unknown as Record<string, unknown>[]) ?? [];
 }
 
 async function fetchStorageFiles(): Promise<Record<string, unknown>[]> {
