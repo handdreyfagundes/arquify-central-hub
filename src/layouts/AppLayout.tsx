@@ -12,6 +12,7 @@ import {
   SidebarMenuButton,
   SidebarInset,
   SidebarTrigger,
+  SidebarFooter,
 } from "@/components/ui/sidebar";
 import { NavLink } from "react-router-dom";
 import {
@@ -25,7 +26,13 @@ import {
   DollarSign,
   BarChart3,
   Settings,
+  Download,
+  Loader2,
 } from "lucide-react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { exportAllDataAsZip } from "@/services/exportData";
+import { toast } from "sonner";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -41,6 +48,20 @@ const NAV_ITEMS = [
 ];
 
 const AppLayout = () => {
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      await exportAllDataAsZip((msg) => toast.info(msg));
+      toast.success("Dados exportados com sucesso!");
+    } catch (err: any) {
+      toast.error("Erro na exportação: " + (err?.message || "desconhecido"));
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <SidebarProvider>
       <Sidebar>
@@ -66,6 +87,21 @@ const AppLayout = () => {
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
+        <SidebarFooter className="p-2">
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-2"
+            onClick={handleExport}
+            disabled={exporting}
+          >
+            {exporting ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Download className="size-4" />
+            )}
+            <span>{exporting ? "Exportando..." : "Exportar Dados (CSV)"}</span>
+          </Button>
+        </SidebarFooter>
       </Sidebar>
       <SidebarInset>
         <header className="flex h-12 items-center gap-2 border-b px-4">
