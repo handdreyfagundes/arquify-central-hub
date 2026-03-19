@@ -33,6 +33,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { exportAllDataAsZip } from "@/services/exportData";
 import { toast } from "sonner";
+import { SchemaDDLDialog } from "@/components/SchemaDDLDialog";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
