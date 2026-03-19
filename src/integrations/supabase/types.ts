@@ -1254,6 +1254,7 @@ export type Database = {
         Args: { _revisao_id: string }
         Returns: string
       }
+      get_schema_ddl: { Args: never; Returns: string }
       get_solicitacao_workspace_id: {
         Args: { _solicitacao_id: string }
         Returns: string

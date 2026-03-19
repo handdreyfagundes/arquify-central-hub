@@ -33,6 +33,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { exportAllDataAsZip } from "@/services/exportData";
 import { toast } from "sonner";
+import { SchemaDDLDialog } from "@/components/SchemaDDLDialog";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -87,7 +88,7 @@ const AppLayout = () => {
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
-        <SidebarFooter className="p-2">
+        <SidebarFooter className="p-2 space-y-1">
           <Button
             variant="outline"
             className="w-full justify-start gap-2"
@@ -101,6 +102,7 @@ const AppLayout = () => {
             )}
             <span>{exporting ? "Exportando..." : "Exportar Dados (CSV)"}</span>
           </Button>
+          <SchemaDDLDialog />
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
